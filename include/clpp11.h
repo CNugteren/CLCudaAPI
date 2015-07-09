@@ -266,10 +266,9 @@ class Program {
   // Regular constructor with memory management
   explicit Program(const Context &context, const std::string &source):
       program_(new cl_program, [](cl_program* p) { CheckError(clReleaseProgram(*p)); delete p; }),
-      length_(source.length()) {
-    std::copy(source.begin(), source.end(), back_inserter(source_));
-    source_.push_back('\0');
-    source_ptr_ = source_.data();
+      length_(source.length()),
+      source_(source),
+      source_ptr_(&source_[0]) {
     auto status = CL_SUCCESS;
     *program_ = clCreateProgramWithSource(context(), 1, &source_ptr_, &length_, &status);
     CheckError(status);
@@ -307,7 +306,7 @@ class Program {
  private:
   std::shared_ptr<cl_program> program_;
   size_t length_;
-  std::vector<char> source_;
+  std::string source_;
   const char* source_ptr_;
 };
 

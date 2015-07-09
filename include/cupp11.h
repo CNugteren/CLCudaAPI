@@ -251,10 +251,8 @@ class Program {
   explicit Program(const Context &, const std::string &source):
       program_(new nvrtcProgram, [](nvrtcProgram* p) { CheckError(nvrtcDestroyProgram(p));
                                                        delete p; }),
-      length_(source.length()) {
-    std::copy(source.begin(), source.end(), back_inserter(source_));
-    source_.push_back('\0');
-    source_ptr_ = source_.data();
+      source_(source),
+      source_ptr_(&source_[0]) {
     CheckError(nvrtcCreateProgram(program_.get(), source_ptr_, nullptr, 0, nullptr, nullptr));
   }
 
@@ -290,8 +288,7 @@ class Program {
   const nvrtcProgram& operator()() const { return *program_; }
  private:
   std::shared_ptr<nvrtcProgram> program_;
-  size_t length_;
-  std::vector<char> source_;
+  std::string source_;
   const char* source_ptr_;
 };
 
