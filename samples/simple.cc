@@ -141,7 +141,7 @@ int main() {
   // Prints the results for a couple of indices to verify that the work has been done
   printf("## All done. Sampled verification:\n");
   const auto verification_indices = std::vector<size_t>{4, 900};
-  for (auto &index: verification_indices) {
+  for (const auto &index: verification_indices) {
     printf(" > %.lf*%d = %.lf\n", host_a[index], multiply_factor, host_b[index]);
   }
 

@@ -194,7 +194,7 @@ int main() {
   // Prints the results for a couple of indices to verify that the work has been done
   printf("## All done. Sampled verification:\n");
   const auto verification_indices = std::vector<size_t>{20};
-  for (auto &index: verification_indices) {
+  for (const auto &index: verification_indices) {
     printf(" > 0.2*%.lf + 0.2*%.lf + 0.2*%.lf + 0.2*%.lf + 0.2*%.lf = %.2lf\n",
            host_a[(index+1)*size_x + (index  )], host_a[(index-1)*size_x + (index  )],
            host_a[(index  )*size_x + (index  )], host_a[(index  )*size_x + (index+1)],

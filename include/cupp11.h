@@ -198,7 +198,7 @@ class Device {
   }
   bool IsThreadConfigValid(const std::vector<size_t> &local) const {
     auto local_size = size_t{1};
-    for (auto &item: local) { local_size *= item; }
+    for (const auto &item: local) { local_size *= item; }
     for (auto i=size_t{0}; i<local.size(); ++i) {
       if (local[i] > MaxWorkItemSizes()[i]) { return false; }
     }
@@ -261,7 +261,7 @@ class Program {
   // Compiles the device program and returns whether or not there where any warnings/errors
   BuildStatus Build(const Device &, std::vector<std::string> &options) {
     auto raw_options = std::vector<const char*>();
-    for (auto &option: options) {
+    for (const auto &option: options) {
       raw_options.push_back(option.c_str());
     }
     auto status = nvrtcCompileProgram(*program_, raw_options.size(), raw_options.data());

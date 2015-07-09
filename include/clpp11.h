@@ -186,7 +186,7 @@ class Device {
   }
   bool IsThreadConfigValid(const std::vector<size_t> &local) const {
     auto local_size = size_t{1};
-    for (auto &item: local) { local_size *= item; }
+    for (const auto &item: local) { local_size *= item; }
     for (auto i=size_t{0}; i<local.size(); ++i) {
       if (local[i] > MaxWorkItemSizes()[i]) { return false; }
     }
