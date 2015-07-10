@@ -301,6 +301,17 @@ class Program {
     return std::string(result.data());
   }
 
+  // Retrieves an intermediate representation of the compiled program
+  std::string GetIR() const {
+    auto bytes = size_t{0};
+    CheckError(clGetProgramInfo(*program_, CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &bytes, nullptr));
+    auto result = std::string{};
+    result.reserve(bytes);
+    auto result_ptr = result.data();
+    CheckError(clGetProgramInfo(*program_, CL_PROGRAM_BINARIES, sizeof(char*), &result_ptr, nullptr));
+    return result;
+  }
+
   // Accessor to the private data-member
   const cl_program& operator()() const { return *program_; }
  private:

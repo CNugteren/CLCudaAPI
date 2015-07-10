@@ -284,6 +284,15 @@ class Program {
     return std::string(result.data());
   }
 
+  // Retrieves an intermediate representation of the compiled program (i.e. PTX)
+  std::string GetIR() const {
+    auto bytes = size_t{0};
+    CheckError(nvrtcGetPTXSize(*program_, &bytes));
+    auto result = std::vector<char>(bytes);
+    CheckError(nvrtcGetPTX(*program_, result.data()));
+    return std::string(result.data());
+  }
+
   // Accessor to the private data-member
   const nvrtcProgram& operator()() const { return *program_; }
  private:
@@ -473,11 +482,7 @@ class Kernel {
 
   // Regular constructor with memory management
   explicit Kernel(const Program &program, const std::string &name) {
-    auto bytes = size_t{0};
-    CheckError(nvrtcGetPTXSize(program(), &bytes));
-    auto ptx = std::vector<char>(bytes);
-    CheckError(nvrtcGetPTX(program(), ptx.data()));
-    CheckError(cuModuleLoadDataEx(&module_, ptx.data(), 0, nullptr, nullptr));
+    CheckError(cuModuleLoadDataEx(&module_, program.GetIR().data(), 0, nullptr, nullptr));
     CheckError(cuModuleGetFunction(&kernel_, module_, name.c_str()));
   }
 
