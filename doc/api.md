@@ -194,7 +194,9 @@ Retrieves a new kernel from a compiled program. The kernel name is given as the 
 Public method(s):
 
 * `template <typename T> void SetArgument(const size_t index, T &value)`:
-Method to set a kernel argument. The argument itself (`value`) has to be a non-const l-value, since its address it passed to the OpenCL/CUDA back-end. The argument `index` specifies the position in the list of kernel arguments. The argument `value` can also be a Claduc::Buffer.
+Method to set a kernel argument. The argument itself (`value`) has to be a non-const l-value, since its address it passed to the OpenCL/CUDA back-end. The argument `index` specifies the position in the list of kernel arguments. The argument `value` can also be a `Claduc::Buffer`.
+
+* `template <typename... Args> void SetArguments(Args&... args)`: As above, but now sets all arguments in one go, starting at index 0. This overwrites any previous arguments (if any). The parameter pack `args` takes any number of arguments of different types, including `Claduc::Buffer`.
 
 * `size_t LocalMemUsage(const Device &device) const`:
 Retrieves the amount of on-chip scratchpad memory (local memory in OpenCL, shared memory in CUDA) required by this specific kernel.
