@@ -153,14 +153,11 @@ int main() {
   queue.Finish();
 
   // Creates the 'convolution' kernel from the compiled program and sets the four arguments. Note
-  // that the indices of the arguments have to be set according to their order in the kernel.
+  // that this uses the direct form instead of setting each argument separately.
   auto kernel = Claduc::Kernel(program, "convolution");
   auto size_x_int = static_cast<int>(size_x);
   auto size_y_int = static_cast<int>(size_y);
-  kernel.SetArgument(0, dev_a);
-  kernel.SetArgument(1, dev_b);
-  kernel.SetArgument(2, size_x_int);
-  kernel.SetArgument(3, size_y_int);
+  kernel.SetArguments(dev_a, dev_b, size_x_int, size_y_int);
 
   // Creates a 2-dimensional thread configuration with thread-blocks/work-groups of 16x16 threads
   // and a total number of threads equal to the number of elements in the input/output matrices.

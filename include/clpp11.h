@@ -536,7 +536,14 @@ class Kernel {
   }
   template <typename T>
   void SetArgument(const size_t index, Buffer<T> &value) {
-    CheckError(clSetKernelArg(*kernel_, static_cast<cl_uint>(index), sizeof(cl_mem), &value()));
+    SetArgument(index, value());
+  }
+
+  // Sets all arguments in one go using parameter packs. Note that this overwrites previously set
+  // arguments using 'SetArgument' or 'SetArguments'.
+  template <typename... Args>
+  void SetArguments(Args&... args) {
+    SetArgumentsRecursive(0, args...);
   }
 
   // Retrieves the amount of local memory used per work-group for this kernel
@@ -561,6 +568,17 @@ class Kernel {
   const cl_kernel& operator()() const { return *kernel_; }
  private:
   std::shared_ptr<cl_kernel> kernel_;
+
+  // Internal implementation for the recursive SetArguments function.
+  template <typename T>
+  void SetArgumentsRecursive(const size_t index, T &first) {
+    SetArgument(index, first);
+  }
+  template <typename T, typename... Args>
+  void SetArgumentsRecursive(const size_t index, T &first, Args&... args) {
+    SetArgument(index, first);
+    SetArgumentsRecursive(index+1, args...);
+  }
 };
 
 // =================================================================================================
