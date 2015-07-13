@@ -142,7 +142,7 @@ class Device {
     CheckError(cuDeviceGet(&device_, device_id % num_devices));
   }
 
-  // Functions to retrieve device information
+  // Methods to retrieve device information
   std::string Version() const {
     auto result = 0;
     CheckError(cuDriverGetVersion(&result));
@@ -169,6 +169,15 @@ class Device {
     auto minor = GetInfo(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR);
     return "SM "+std::to_string(major)+"."+std::to_string(minor);
   }
+  size_t CoreClock() const { return 1e-3*GetInfo(CU_DEVICE_ATTRIBUTE_CLOCK_RATE); }
+  size_t ComputeUnits() const { return GetInfo(CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT); }
+  size_t MemorySize() const {
+    auto result = size_t{0};
+    CheckError(cuDeviceTotalMem(&result, device_));
+    return result;
+  }
+  size_t MemoryClock() const { return 1e-3*GetInfo(CU_DEVICE_ATTRIBUTE_MEMORY_CLOCK_RATE); }
+  size_t MemoryBusWidth() const { return GetInfo(CU_DEVICE_ATTRIBUTE_GLOBAL_MEMORY_BUS_WIDTH); }
 
   // Configuration-validity checks
   bool IsLocalMemoryValid(const size_t local_mem_usage) const {

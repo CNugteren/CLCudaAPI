@@ -69,8 +69,13 @@ int main() {
   for (auto i=size_t{0}; i<device.MaxWorkItemDimensions(); ++i) {
     printf("   - in the %lu-dimension         %lu\n", i, device.MaxWorkItemSizes()[i]);
   }
-  printf(" > Local memory per work-group  %lu\n", device.LocalMemSize());
+  printf(" > Local memory per work-group  %lu bytes\n", device.LocalMemSize());
   printf(" > Device capabilities          %s\n", device.Capabilities().c_str());
+  printf(" > Core clock rate              %lu MHz\n", device.CoreClock());
+  printf(" > Number of compute units      %lu\n", device.ComputeUnits());
+  printf(" > Allocatable memory size      %lu bytes\n", device.MemorySize());
+  printf(" > Memory clock rate            %lu MHz\n", device.MemoryClock());
+  printf(" > Memory bus width             %lu bits\n", device.MemoryBusWidth());
 
   // End of the example: no frees or clean-up needed
   return 0;

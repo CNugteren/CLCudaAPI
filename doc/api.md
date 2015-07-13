@@ -61,6 +61,22 @@ Retrieves the maximum amount of on-chip scratchpad memory ('local memory') avail
 * `std::string Capabilities() const`:
 In case of the OpenCL back-end, this returns a list of the OpenCL extensions supported. For CUDA, this returns the device capability (e.g. SM 3.5).
 
+* `size_t CoreClock() const`:
+Retrieves the device's core clock frequency in MHz.
+
+* `size_t ComputeUnits() const`:
+Retrieves the number of compute units (OpenCL terminology) or multi-processors (CUDA terminology) in the device.
+
+* `size_t MemorySize() const`:
+Retrieves the global memory size (CUDA back-end) or the maximum amount of allocatable global memory per allocation (OpenCL back-end).
+
+* `size_t MemoryClock() const`:
+Retrieves the device's memory clock frequency in MHz (CUDA back-end) or 0 (OpenCL back-end).
+
+* `size_t MemoryBusWidth() const`:
+Retrieves the device's memory bus-width in bits (CUDA back-end) or 0 (OpenCL back-end).
+
+
 * `bool IsLocalMemoryValid(const size_t local_mem_usage) const`:
 Given a requested amount of local on-chip scratchpad memory, this method returns whether or not this is a valid configuration for this particular device.
 
