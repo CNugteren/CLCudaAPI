@@ -146,15 +146,9 @@ class Device {
   }
 
   // Functions to retrieve device information
-  std::string Version() const {
-    return GetInfoString(CL_DEVICE_VERSION);
-  }
-  std::string Vendor() const {
-    return GetInfoString(CL_DEVICE_VENDOR);
-  }
-  std::string Name() const {
-    return GetInfoString(CL_DEVICE_NAME);
-  }
+  std::string Version() const { return GetInfoString(CL_DEVICE_VERSION); }
+  std::string Vendor() const { return GetInfoString(CL_DEVICE_VENDOR); }
+  std::string Name() const { return GetInfoString(CL_DEVICE_NAME); }
   std::string Type() const {
     auto type = GetInfo<cl_device_type>(CL_DEVICE_TYPE);
     switch(type) {
@@ -164,9 +158,7 @@ class Device {
       default: return "default";
     }
   }
-  size_t MaxWorkGroupSize() const {
-    return GetInfo<size_t>(CL_DEVICE_MAX_WORK_GROUP_SIZE);
-  }
+  size_t MaxWorkGroupSize() const { return GetInfo<size_t>(CL_DEVICE_MAX_WORK_GROUP_SIZE); }
   size_t MaxWorkItemDimensions() const {
     return static_cast<size_t>(GetInfo<cl_uint>(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS));
   }
@@ -176,9 +168,7 @@ class Device {
   size_t LocalMemSize() const {
     return static_cast<size_t>(GetInfo<cl_ulong>(CL_DEVICE_LOCAL_MEM_SIZE));
   }
-  std::string Capabilities() const {
-    return GetInfoString(CL_DEVICE_EXTENSIONS);
-  }
+  std::string Capabilities() const { return GetInfoString(CL_DEVICE_EXTENSIONS); }
 
   // Configuration-validity checks
   bool IsLocalMemoryValid(const size_t local_mem_usage) const {

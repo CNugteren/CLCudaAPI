@@ -148,48 +148,25 @@ class Device {
     CheckError(cuDriverGetVersion(&result));
     return "CUDA driver "+std::to_string(result);
   }
-  std::string Vendor() const {
-    return "NVIDIA Corporation";
-  }
+  std::string Vendor() const { return "NVIDIA Corporation"; }
   std::string Name() const {
     auto result = std::string{};
     result.resize(kStringLength);
     CheckError(cuDeviceGetName(&result[0], result.size(), device_));
     return result;
   }
-  std::string Type() const {
-    return "GPU";
-  }
-  size_t MaxWorkGroupSize() const {
-    auto result = 0;
-    CheckError(cuDeviceGetAttribute(&result, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK, device_));
-    return static_cast<size_t>(result);
-  }
-  size_t MaxWorkItemDimensions() const {
-    return size_t{3};
-  }
+  std::string Type() const { return "GPU"; }
+  size_t MaxWorkGroupSize() const {return GetInfo(CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK); }
+  size_t MaxWorkItemDimensions() const { return size_t{3}; }
   std::vector<size_t> MaxWorkItemSizes() const {
-    auto results = std::vector<size_t>();
-    auto result = 0;
-    CheckError(cuDeviceGetAttribute(&result, CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_X, device_));
-    results.push_back(static_cast<size_t>(result));
-    CheckError(cuDeviceGetAttribute(&result, CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_Y, device_));
-    results.push_back(static_cast<size_t>(result));
-    CheckError(cuDeviceGetAttribute(&result, CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_Z, device_));
-    results.push_back(static_cast<size_t>(result));
-    return results;
+    return std::vector<size_t>{GetInfo(CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_X),
+                               GetInfo(CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_Y),
+                               GetInfo(CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_Z)};
   }
-  size_t LocalMemSize() const {
-    auto result = 0;
-    CheckError(cuDeviceGetAttribute(&result, CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_BLOCK,
-                                    device_));
-    return static_cast<size_t>(result);
-  }
+  size_t LocalMemSize() const { return GetInfo(CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_BLOCK); }
   std::string Capabilities() const {
-    auto major = 0;
-    CheckError(cuDeviceGetAttribute(&major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, device_));
-    auto minor = 0;
-    CheckError(cuDeviceGetAttribute(&minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, device_));
+    auto major = GetInfo(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR);
+    auto minor = GetInfo(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR);
     return "SM "+std::to_string(major)+"."+std::to_string(minor);
   }
 
@@ -212,6 +189,13 @@ class Device {
   const CUdevice& operator()() const { return device_; }
  private:
   CUdevice device_;
+
+  // Private helper function
+  size_t GetInfo(const CUdevice_attribute info) const {
+    auto result = 0;
+    CheckError(cuDeviceGetAttribute(&result, info, device_));
+    return static_cast<size_t>(result);
+  }
 };
 
 // =================================================================================================
