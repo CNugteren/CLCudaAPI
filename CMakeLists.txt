@@ -31,7 +31,7 @@
 # CMake project details
 cmake_minimum_required(VERSION 2.8.10)
 project("Claduc" CXX)
-set(Claduc_VERSION_MAJOR 1)
+set(Claduc_VERSION_MAJOR 2)
 set(Claduc_VERSION_MINOR 0)
 
 # ==================================================================================================

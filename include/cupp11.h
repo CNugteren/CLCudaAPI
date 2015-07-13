@@ -12,6 +12,11 @@
 // Portability here means that a similar header exists for OpenCL with the same classes and
 // interfaces. In other words, moving from the CUDA API to the OpenCL API becomes a one-line change.
 //
+// Version 2.0 (2015-07-13):
+// - New methods: Device::CoreClock, Device::ComputeUnits, Device::MemorySize, Device::MemoryClock,
+//   Device::MemoryBusWidth, Program::GetIR, Kernel::SetArguments
+// - Allows device program string to be moved into Program at construction
+//
 // Version 1.0 (2015-07-09):
 // - Initial version
 //
@@ -142,55 +147,42 @@ class Device {
     CheckError(cuDeviceGet(&device_, device_id % num_devices));
   }
 
-  // Functions to retrieve device information
+  // Methods to retrieve device information
   std::string Version() const {
     auto result = 0;
     CheckError(cuDriverGetVersion(&result));
     return "CUDA driver "+std::to_string(result);
   }
-  std::string Vendor() const {
-    return "NVIDIA Corporation";
-  }
+  std::string Vendor() const { return "NVIDIA Corporation"; }
   std::string Name() const {
-    auto result = std::vector<char>(kStringLength);
-    CheckError(cuDeviceGetName(result.data(), result.size(), device_));
-    return std::string{result.data()};
+    auto result = std::string{};
+    result.resize(kStringLength);
+    CheckError(cuDeviceGetName(&result[0], result.size(), device_));
+    return result;
   }
-  std::string Type() const {
-    return "GPU";
-  }
-  size_t MaxWorkGroupSize() const {
-    auto result = 0;
-    CheckError(cuDeviceGetAttribute(&result, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK, device_));
-    return static_cast<size_t>(result);
-  }
-  size_t MaxWorkItemDimensions() const {
-    return size_t{3};
-  }
+  std::string Type() const { return "GPU"; }
+  size_t MaxWorkGroupSize() const {return GetInfo(CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK); }
+  size_t MaxWorkItemDimensions() const { return size_t{3}; }
   std::vector<size_t> MaxWorkItemSizes() const {
-    auto results = std::vector<size_t>();
-    auto result = 0;
-    CheckError(cuDeviceGetAttribute(&result, CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_X, device_));
-    results.push_back(static_cast<size_t>(result));
-    CheckError(cuDeviceGetAttribute(&result, CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_Y, device_));
-    results.push_back(static_cast<size_t>(result));
-    CheckError(cuDeviceGetAttribute(&result, CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_Z, device_));
-    results.push_back(static_cast<size_t>(result));
-    return results;
+    return std::vector<size_t>{GetInfo(CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_X),
+                               GetInfo(CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_Y),
+                               GetInfo(CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_Z)};
   }
-  size_t LocalMemSize() const {
-    auto result = 0;
-    CheckError(cuDeviceGetAttribute(&result, CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_BLOCK,
-                                    device_));
-    return static_cast<size_t>(result);
-  }
+  size_t LocalMemSize() const { return GetInfo(CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_BLOCK); }
   std::string Capabilities() const {
-    auto major = 0;
-    CheckError(cuDeviceGetAttribute(&major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, device_));
-    auto minor = 0;
-    CheckError(cuDeviceGetAttribute(&minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, device_));
+    auto major = GetInfo(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR);
+    auto minor = GetInfo(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR);
     return "SM "+std::to_string(major)+"."+std::to_string(minor);
   }
+  size_t CoreClock() const { return 1e-3*GetInfo(CU_DEVICE_ATTRIBUTE_CLOCK_RATE); }
+  size_t ComputeUnits() const { return GetInfo(CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT); }
+  size_t MemorySize() const {
+    auto result = size_t{0};
+    CheckError(cuDeviceTotalMem(&result, device_));
+    return result;
+  }
+  size_t MemoryClock() const { return 1e-3*GetInfo(CU_DEVICE_ATTRIBUTE_MEMORY_CLOCK_RATE); }
+  size_t MemoryBusWidth() const { return GetInfo(CU_DEVICE_ATTRIBUTE_GLOBAL_MEMORY_BUS_WIDTH); }
 
   // Configuration-validity checks
   bool IsLocalMemoryValid(const size_t local_mem_usage) const {
@@ -198,7 +190,7 @@ class Device {
   }
   bool IsThreadConfigValid(const std::vector<size_t> &local) const {
     auto local_size = size_t{1};
-    for (auto &item: local) { local_size *= item; }
+    for (const auto &item: local) { local_size *= item; }
     for (auto i=size_t{0}; i<local.size(); ++i) {
       if (local[i] > MaxWorkItemSizes()[i]) { return false; }
     }
@@ -211,6 +203,13 @@ class Device {
   const CUdevice& operator()() const { return device_; }
  private:
   CUdevice device_;
+
+  // Private helper function
+  size_t GetInfo(const CUdevice_attribute info) const {
+    auto result = 0;
+    CheckError(cuDeviceGetAttribute(&result, info, device_));
+    return static_cast<size_t>(result);
+  }
 };
 
 // =================================================================================================
@@ -248,20 +247,18 @@ class Program {
   // Note that there is no constructor based on the regular CUDA data-type because of extra state
 
   // Regular constructor with memory management
-  explicit Program(const Context &, const std::string &source):
+  explicit Program(const Context &, std::string source):
       program_(new nvrtcProgram, [](nvrtcProgram* p) { CheckError(nvrtcDestroyProgram(p));
                                                        delete p; }),
-      length_(source.length()) {
-    std::copy(source.begin(), source.end(), back_inserter(source_));
-    source_.push_back('\0');
-    source_ptr_ = source_.data();
+      source_(std::move(source)),
+      source_ptr_(&source_[0]) {
     CheckError(nvrtcCreateProgram(program_.get(), source_ptr_, nullptr, 0, nullptr, nullptr));
   }
 
   // Compiles the device program and returns whether or not there where any warnings/errors
   BuildStatus Build(const Device &, std::vector<std::string> &options) {
     auto raw_options = std::vector<const char*>();
-    for (auto &option: options) {
+    for (const auto &option: options) {
       raw_options.push_back(option.c_str());
     }
     auto status = nvrtcCompileProgram(*program_, raw_options.size(), raw_options.data());
@@ -281,17 +278,27 @@ class Program {
   std::string GetBuildInfo(const Device &) const {
     auto bytes = size_t{0};
     CheckError(nvrtcGetProgramLogSize(*program_, &bytes));
-    auto result = std::vector<char>(bytes);
-    CheckError(nvrtcGetProgramLog(*program_, result.data()));
-    return std::string(result.data());
+    auto result = std::string{};
+    result.resize(bytes);
+    CheckError(nvrtcGetProgramLog(*program_, &result[0]));
+    return result;
+  }
+
+  // Retrieves an intermediate representation of the compiled program (i.e. PTX)
+  std::string GetIR() const {
+    auto bytes = size_t{0};
+    CheckError(nvrtcGetPTXSize(*program_, &bytes));
+    auto result = std::string{};
+    result.resize(bytes);
+    CheckError(nvrtcGetPTX(*program_, &result[0]));
+    return result;
   }
 
   // Accessor to the private data-member
   const nvrtcProgram& operator()() const { return *program_; }
  private:
   std::shared_ptr<nvrtcProgram> program_;
-  size_t length_;
-  std::vector<char> source_;
+  std::string source_;
   const char* source_ptr_;
 };
 
@@ -476,22 +483,27 @@ class Kernel {
 
   // Regular constructor with memory management
   explicit Kernel(const Program &program, const std::string &name) {
-    auto bytes = size_t{0};
-    CheckError(nvrtcGetPTXSize(program(), &bytes));
-    auto ptx = std::vector<char>(bytes);
-    CheckError(nvrtcGetPTX(program(), ptx.data()));
-    CheckError(cuModuleLoadDataEx(&module_, ptx.data(), 0, nullptr, nullptr));
+    CheckError(cuModuleLoadDataEx(&module_, program.GetIR().data(), 0, nullptr, nullptr));
     CheckError(cuModuleGetFunction(&kernel_, module_, name.c_str()));
   }
 
   // Sets a kernel argument at the indicated position
   template <typename T>
-  void SetArgument(const size_t index, Buffer<T> &value) {
-    arguments_.push_back(&value());
+  void SetArgument(const size_t index, T &value) {
+    if (index >= arguments_.size()) { arguments_.resize(index+1); }
+    arguments_[index] = &value;
   }
   template <typename T>
-  void SetArgument(const size_t index, T &value) {
-    arguments_.push_back(&value);
+  void SetArgument(const size_t index, Buffer<T> &value) {
+    SetArgument(index, value());
+  }
+
+  // Sets all arguments in one go using parameter packs. Note that this resets all previously set
+  // arguments using 'SetArgument' or 'SetArguments'.
+  template <typename... Args>
+  void SetArguments(Args&... args) {
+    arguments_.clear();
+    SetArgumentsRecursive(0, args...);
   }
 
   // Retrieves the amount of local memory used per work-group for this kernel. Note that this the
@@ -527,6 +539,17 @@ class Kernel {
   CUmodule module_;
   CUfunction kernel_;
   std::vector<void*> arguments_;
+
+  // Internal implementation for the recursive SetArguments function.
+  template <typename T>
+  void SetArgumentsRecursive(const size_t index, T &first) {
+    SetArgument(index, first);
+  }
+  template <typename T, typename... Args>
+  void SetArgumentsRecursive(const size_t index, T &first, Args&... args) {
+    SetArgument(index, first);
+    SetArgumentsRecursive(index+1, args...);
+  }
 };
 
 // =================================================================================================

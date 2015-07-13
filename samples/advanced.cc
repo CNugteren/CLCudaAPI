@@ -114,10 +114,14 @@ int main() {
   // Creates a new Claduc event to be able to time kernels
   auto event = Claduc::Event();
 
-  // Creates a new program based on the kernel string. Then, builds this program and checks for
-  // any compilation errors. If there are any, they are printed and execution is halted.
+  // Creates a new program based on the kernel string. Note that the kernel string is moved-out when
+  // constructing the program to save copying: it should no longer be used in the remainder of this
+  // function.
+  auto program = Claduc::Program(context, std::move(program_string));
+
+  // Builds this program and checks for any compilation errors. If there are any, they are printed
+  // and execution is halted.
   printf("## Compiling the kernel...\n");
-  auto program = Claduc::Program(context, program_string);
   auto build_status = program.Build(device, compiler_options);
   if (build_status != Claduc::BuildStatus::kSuccess) {
     auto message = program.GetBuildInfo(device);
@@ -153,14 +157,11 @@ int main() {
   queue.Finish();
 
   // Creates the 'convolution' kernel from the compiled program and sets the four arguments. Note
-  // that the indices of the arguments have to be set according to their order in the kernel.
+  // that this uses the direct form instead of setting each argument separately.
   auto kernel = Claduc::Kernel(program, "convolution");
   auto size_x_int = static_cast<int>(size_x);
   auto size_y_int = static_cast<int>(size_y);
-  kernel.SetArgument(0, dev_a);
-  kernel.SetArgument(1, dev_b);
-  kernel.SetArgument(2, size_x_int);
-  kernel.SetArgument(3, size_y_int);
+  kernel.SetArguments(dev_a, dev_b, size_x_int, size_y_int);
 
   // Creates a 2-dimensional thread configuration with thread-blocks/work-groups of 16x16 threads
   // and a total number of threads equal to the number of elements in the input/output matrices.
@@ -194,7 +195,7 @@ int main() {
   // Prints the results for a couple of indices to verify that the work has been done
   printf("## All done. Sampled verification:\n");
   const auto verification_indices = std::vector<size_t>{20};
-  for (auto &index: verification_indices) {
+  for (const auto &index: verification_indices) {
     printf(" > 0.2*%.lf + 0.2*%.lf + 0.2*%.lf + 0.2*%.lf + 0.2*%.lf = %.2lf\n",
            host_a[(index+1)*size_x + (index  )], host_a[(index-1)*size_x + (index  )],
            host_a[(index  )*size_x + (index  )], host_a[(index  )*size_x + (index+1)],

@@ -12,6 +12,11 @@
 // Portability here means that a similar header exists for CUDA with the same classes and
 // interfaces. In other words, moving from the OpenCL API to the CUDA API becomes a one-line change.
 //
+// Version 2.0 (2015-07-13):
+// - New methods: Device::CoreClock, Device::ComputeUnits, Device::MemorySize, Device::MemoryClock,
+//   Device::MemoryBusWidth, Program::GetIR, Kernel::SetArguments
+// - Allows device program string to be moved into Program at construction
+//
 // Version 1.0 (2015-07-09):
 // - Initial version
 //
@@ -145,16 +150,10 @@ class Device {
     device_ = devices[device_id];
   }
 
-  // Functions to retrieve device information
-  std::string Version() const {
-    return GetInfoString(CL_DEVICE_VERSION);
-  }
-  std::string Vendor() const {
-    return GetInfoString(CL_DEVICE_VENDOR);
-  }
-  std::string Name() const {
-    return GetInfoString(CL_DEVICE_NAME);
-  }
+  // Methods to retrieve device information
+  std::string Version() const { return GetInfoString(CL_DEVICE_VERSION); }
+  std::string Vendor() const { return GetInfoString(CL_DEVICE_VENDOR); }
+  std::string Name() const { return GetInfoString(CL_DEVICE_NAME); }
   std::string Type() const {
     auto type = GetInfo<cl_device_type>(CL_DEVICE_TYPE);
     switch(type) {
@@ -164,11 +163,9 @@ class Device {
       default: return "default";
     }
   }
-  size_t MaxWorkGroupSize() const {
-    return GetInfo<size_t>(CL_DEVICE_MAX_WORK_GROUP_SIZE);
-  }
+  size_t MaxWorkGroupSize() const { return GetInfo<size_t>(CL_DEVICE_MAX_WORK_GROUP_SIZE); }
   size_t MaxWorkItemDimensions() const {
-    return static_cast<size_t>(GetInfo<cl_uint>(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS));
+    return GetInfo(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS);
   }
   std::vector<size_t> MaxWorkItemSizes() const {
     return GetInfoVector<size_t>(CL_DEVICE_MAX_WORK_ITEM_SIZES);
@@ -176,9 +173,12 @@ class Device {
   size_t LocalMemSize() const {
     return static_cast<size_t>(GetInfo<cl_ulong>(CL_DEVICE_LOCAL_MEM_SIZE));
   }
-  std::string Capabilities() const {
-    return GetInfoString(CL_DEVICE_EXTENSIONS);
-  }
+  std::string Capabilities() const { return GetInfoString(CL_DEVICE_EXTENSIONS); }
+  size_t CoreClock() const { return GetInfo(CL_DEVICE_MAX_CLOCK_FREQUENCY); }
+  size_t ComputeUnits() const { return GetInfo(CL_DEVICE_MAX_COMPUTE_UNITS); }
+  size_t MemorySize() const { return GetInfo(CL_DEVICE_GLOBAL_MEM_SIZE); }
+  size_t MemoryClock() const { return 0; } // Not exposed in OpenCL
+  size_t MemoryBusWidth() const { return 0; } // Not exposed in OpenCL
 
   // Configuration-validity checks
   bool IsLocalMemoryValid(const size_t local_mem_usage) const {
@@ -186,7 +186,7 @@ class Device {
   }
   bool IsThreadConfigValid(const std::vector<size_t> &local) const {
     auto local_size = size_t{1};
-    for (auto &item: local) { local_size *= item; }
+    for (const auto &item: local) { local_size *= item; }
     for (auto i=size_t{0}; i<local.size(); ++i) {
       if (local[i] > MaxWorkItemSizes()[i]) { return false; }
     }
@@ -209,6 +209,13 @@ class Device {
     CheckError(clGetDeviceInfo(device_, info, bytes, &result, nullptr));
     return result;
   }
+  size_t GetInfo(const cl_device_info info) const {
+    auto bytes = size_t{0};
+    CheckError(clGetDeviceInfo(device_, info, 0, nullptr, &bytes));
+    auto result = cl_uint(0);
+    CheckError(clGetDeviceInfo(device_, info, bytes, &result, nullptr));
+    return static_cast<size_t>(result);
+  }
   template <typename T>
   std::vector<T> GetInfoVector(const cl_device_info info) const {
     auto bytes = size_t{0};
@@ -220,9 +227,10 @@ class Device {
   std::string GetInfoString(const cl_device_info info) const {
     auto bytes = size_t{0};
     CheckError(clGetDeviceInfo(device_, info, 0, nullptr, &bytes));
-    auto result = std::vector<char>(bytes);
-    CheckError(clGetDeviceInfo(device_, info, bytes, result.data(), nullptr));
-    return std::string(result.data());
+    auto result = std::string{};
+    result.resize(bytes);
+    CheckError(clGetDeviceInfo(device_, info, bytes, &result[0], nullptr));
+    return result;
   }
 };
 
@@ -264,12 +272,11 @@ class Program {
   // Note that there is no constructor based on the regular OpenCL data-type because of extra state
 
   // Regular constructor with memory management
-  explicit Program(const Context &context, const std::string &source):
+  explicit Program(const Context &context, std::string source):
       program_(new cl_program, [](cl_program* p) { CheckError(clReleaseProgram(*p)); delete p; }),
-      length_(source.length()) {
-    std::copy(source.begin(), source.end(), back_inserter(source_));
-    source_.push_back('\0');
-    source_ptr_ = source_.data();
+      length_(source.length()),
+      source_(std::move(source)),
+      source_ptr_(&source_[0]) {
     auto status = CL_SUCCESS;
     *program_ = clCreateProgramWithSource(context(), 1, &source_ptr_, &length_, &status);
     CheckError(status);
@@ -297,9 +304,21 @@ class Program {
     auto bytes = size_t{0};
     auto query = cl_program_build_info{CL_PROGRAM_BUILD_LOG};
     CheckError(clGetProgramBuildInfo(*program_, device(), query, 0, nullptr, &bytes));
-    auto result = std::vector<char>(bytes);
-    CheckError(clGetProgramBuildInfo(*program_, device(), query, bytes, result.data(), nullptr));
-    return std::string(result.data());
+    auto result = std::string{};
+    result.resize(bytes);
+    CheckError(clGetProgramBuildInfo(*program_, device(), query, bytes, &result[0], nullptr));
+    return result;
+  }
+
+  // Retrieves an intermediate representation of the compiled program
+  std::string GetIR() const {
+    auto bytes = size_t{0};
+    CheckError(clGetProgramInfo(*program_, CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &bytes, nullptr));
+    auto result = std::string{};
+    result.resize(bytes);
+    auto result_ptr = result.data();
+    CheckError(clGetProgramInfo(*program_, CL_PROGRAM_BINARIES, sizeof(char*), &result_ptr, nullptr));
+    return result;
   }
 
   // Accessor to the private data-member
@@ -307,7 +326,7 @@ class Program {
  private:
   std::shared_ptr<cl_program> program_;
   size_t length_;
-  std::vector<char> source_;
+  std::string source_;
   const char* source_ptr_;
 };
 
@@ -526,7 +545,14 @@ class Kernel {
   }
   template <typename T>
   void SetArgument(const size_t index, Buffer<T> &value) {
-    CheckError(clSetKernelArg(*kernel_, static_cast<cl_uint>(index), sizeof(cl_mem), &value()));
+    SetArgument(index, value());
+  }
+
+  // Sets all arguments in one go using parameter packs. Note that this overwrites previously set
+  // arguments using 'SetArgument' or 'SetArguments'.
+  template <typename... Args>
+  void SetArguments(Args&... args) {
+    SetArgumentsRecursive(0, args...);
   }
 
   // Retrieves the amount of local memory used per work-group for this kernel
@@ -551,6 +577,17 @@ class Kernel {
   const cl_kernel& operator()() const { return *kernel_; }
  private:
   std::shared_ptr<cl_kernel> kernel_;
+
+  // Internal implementation for the recursive SetArguments function.
+  template <typename T>
+  void SetArgumentsRecursive(const size_t index, T &first) {
+    SetArgument(index, first);
+  }
+  template <typename T, typename... Args>
+  void SetArgumentsRecursive(const size_t index, T &first, Args&... args) {
+    SetArgument(index, first);
+    SetArgumentsRecursive(index+1, args...);
+  }
 };
 
 // =================================================================================================
