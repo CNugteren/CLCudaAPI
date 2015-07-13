@@ -87,8 +87,8 @@ Status of the run-time compiler. It can complete successfully (`kSuccess`), gene
 
 Constructor(s):
 
-* `Program(const Context &context, const std::string &source)`:
-Creates a new OpenCL or CUDA program on a given context. A program is a collection of one or more device kernels which form a single compilation unit together. The device-code is passed as a string. Such a string can for example be generated, hard-coded, or read from file at run-time.
+* `Program(const Context &context, std::string source)`:
+Creates a new OpenCL or CUDA program on a given context. A program is a collection of one or more device kernels which form a single compilation unit together. The device-code is passed as a string. Such a string can for example be generated, hard-coded, or read from file at run-time. If passed as an r-value (e.g. using `std::move`), the device-code string is moved instead of copied into the class' member variable.
 
 Public method(s):
 

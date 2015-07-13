@@ -264,10 +264,10 @@ class Program {
   // Note that there is no constructor based on the regular OpenCL data-type because of extra state
 
   // Regular constructor with memory management
-  explicit Program(const Context &context, const std::string &source):
+  explicit Program(const Context &context, std::string source):
       program_(new cl_program, [](cl_program* p) { CheckError(clReleaseProgram(*p)); delete p; }),
       length_(source.length()),
-      source_(source),
+      source_(std::move(source)),
       source_ptr_(&source_[0]) {
     auto status = CL_SUCCESS;
     *program_ = clCreateProgramWithSource(context(), 1, &source_ptr_, &length_, &status);

@@ -114,10 +114,14 @@ int main() {
   // Creates a new Claduc event to be able to time kernels
   auto event = Claduc::Event();
 
-  // Creates a new program based on the kernel string. Then, builds this program and checks for
-  // any compilation errors. If there are any, they are printed and execution is halted.
+  // Creates a new program based on the kernel string. Note that the kernel string is moved-out when
+  // constructing the program to save copying: it should no longer be used in the remainder of this
+  // function.
+  auto program = Claduc::Program(context, std::move(program_string));
+
+  // Builds this program and checks for any compilation errors. If there are any, they are printed
+  // and execution is halted.
   printf("## Compiling the kernel...\n");
-  auto program = Claduc::Program(context, program_string);
   auto build_status = program.Build(device, compiler_options);
   if (build_status != Claduc::BuildStatus::kSuccess) {
     auto message = program.GetBuildInfo(device);

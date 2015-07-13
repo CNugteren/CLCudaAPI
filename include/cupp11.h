@@ -248,10 +248,10 @@ class Program {
   // Note that there is no constructor based on the regular CUDA data-type because of extra state
 
   // Regular constructor with memory management
-  explicit Program(const Context &, const std::string &source):
+  explicit Program(const Context &, std::string source):
       program_(new nvrtcProgram, [](nvrtcProgram* p) { CheckError(nvrtcDestroyProgram(p));
                                                        delete p; }),
-      source_(source),
+      source_(std::move(source)),
       source_ptr_(&source_[0]) {
     CheckError(nvrtcCreateProgram(program_.get(), source_ptr_, nullptr, 0, nullptr, nullptr));
   }
