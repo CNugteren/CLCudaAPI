@@ -220,9 +220,10 @@ class Device {
   std::string GetInfoString(const cl_device_info info) const {
     auto bytes = size_t{0};
     CheckError(clGetDeviceInfo(device_, info, 0, nullptr, &bytes));
-    auto result = std::vector<char>(bytes);
-    CheckError(clGetDeviceInfo(device_, info, bytes, result.data(), nullptr));
-    return std::string(result.data());
+    auto result = std::string{};
+    result.resize(bytes);
+    CheckError(clGetDeviceInfo(device_, info, bytes, &result[0], nullptr));
+    return result;
   }
 };
 
@@ -296,9 +297,10 @@ class Program {
     auto bytes = size_t{0};
     auto query = cl_program_build_info{CL_PROGRAM_BUILD_LOG};
     CheckError(clGetProgramBuildInfo(*program_, device(), query, 0, nullptr, &bytes));
-    auto result = std::vector<char>(bytes);
-    CheckError(clGetProgramBuildInfo(*program_, device(), query, bytes, result.data(), nullptr));
-    return std::string(result.data());
+    auto result = std::string{};
+    result.resize(bytes);
+    CheckError(clGetProgramBuildInfo(*program_, device(), query, bytes, &result[0], nullptr));
+    return result;
   }
 
   // Retrieves an intermediate representation of the compiled program
@@ -306,7 +308,7 @@ class Program {
     auto bytes = size_t{0};
     CheckError(clGetProgramInfo(*program_, CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &bytes, nullptr));
     auto result = std::string{};
-    result.reserve(bytes);
+    result.resize(bytes);
     auto result_ptr = result.data();
     CheckError(clGetProgramInfo(*program_, CL_PROGRAM_BINARIES, sizeof(char*), &result_ptr, nullptr));
     return result;

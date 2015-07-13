@@ -152,9 +152,10 @@ class Device {
     return "NVIDIA Corporation";
   }
   std::string Name() const {
-    auto result = std::vector<char>(kStringLength);
-    CheckError(cuDeviceGetName(result.data(), result.size(), device_));
-    return std::string{result.data()};
+    auto result = std::string{};
+    result.resize(kStringLength);
+    CheckError(cuDeviceGetName(&result[0], result.size(), device_));
+    return result;
   }
   std::string Type() const {
     return "GPU";
@@ -279,18 +280,20 @@ class Program {
   std::string GetBuildInfo(const Device &) const {
     auto bytes = size_t{0};
     CheckError(nvrtcGetProgramLogSize(*program_, &bytes));
-    auto result = std::vector<char>(bytes);
-    CheckError(nvrtcGetProgramLog(*program_, result.data()));
-    return std::string(result.data());
+    auto result = std::string{};
+    result.resize(bytes);
+    CheckError(nvrtcGetProgramLog(*program_, &result[0]));
+    return result;
   }
 
   // Retrieves an intermediate representation of the compiled program (i.e. PTX)
   std::string GetIR() const {
     auto bytes = size_t{0};
     CheckError(nvrtcGetPTXSize(*program_, &bytes));
-    auto result = std::vector<char>(bytes);
-    CheckError(nvrtcGetPTX(*program_, result.data()));
-    return std::string(result.data());
+    auto result = std::string{};
+    result.resize(bytes);
+    CheckError(nvrtcGetPTX(*program_, &result[0]));
+    return result;
   }
 
   // Accessor to the private data-member
