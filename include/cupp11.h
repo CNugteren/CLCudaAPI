@@ -12,6 +12,11 @@
 // Portability here means that a similar header exists for OpenCL with the same classes and
 // interfaces. In other words, moving from the CUDA API to the OpenCL API becomes a one-line change.
 //
+// Version 2.0 (2015-07-13):
+// - New methods: Device::CoreClock, Device::ComputeUnits, Device::MemorySize, Device::MemoryClock,
+//   Device::MemoryBusWidth, Program::GetIR, Kernel::SetArguments
+// - Allows device program string to be moved into Program at construction
+//
 // Version 1.0 (2015-07-09):
 // - Initial version
 //
