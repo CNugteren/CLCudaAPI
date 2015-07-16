@@ -121,10 +121,17 @@ class Event {
 class Platform {
  public:
 
-  // Initialize the platform. Note that the platform ID variable is not actually used for CUDA.
+  // Initializes the platform. Note that the platform ID variable is not actually used for CUDA.
   explicit Platform(const size_t platform_id):
     platform_id_(platform_id) {
     CheckError(cuInit(0));
+  }
+
+  // Returns the number of devices on this platform
+  size_t NumDevices() const {
+    auto result = 0;
+    CheckError(cuDeviceGetCount(&result));
+    return result;
   }
 
  private:
@@ -142,8 +149,8 @@ class Device {
 
   // Initialization
   explicit Device(const Platform &platform, const size_t device_id) {
-    auto num_devices = 0;
-    CheckError(cuDeviceGetCount(&num_devices));
+    auto num_devices = platform.NumDevices();
+    if (num_devices == 0) { Error("no devices found"); }
     CheckError(cuDeviceGet(&device_, device_id % num_devices));
   }
 

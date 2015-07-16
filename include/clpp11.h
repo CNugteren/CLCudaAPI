@@ -124,6 +124,13 @@ class Platform {
     platform_ = platforms[platform_id];
   }
 
+  // Returns the number of devices on this platform
+  size_t NumDevices() const {
+    auto result = cl_uint{0};
+    CheckError(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_ALL, 0, nullptr, &result));
+    return result;
+  }
+
   // Accessor to the private data-member
   const cl_platform_id& operator()() const { return platform_; }
  private:
@@ -141,8 +148,7 @@ class Device {
 
   // Initialize the device. Note that this constructor can throw exceptions!
   explicit Device(const Platform &platform, const size_t device_id) {
-    auto num_devices = cl_uint{0};
-    CheckError(clGetDeviceIDs(platform(), CL_DEVICE_TYPE_ALL, 0, nullptr, &num_devices));
+    auto num_devices = platform.NumDevices();
     if (num_devices == 0) { Error("no devices found"); }
     auto devices = std::vector<cl_device_id>(num_devices);
     CheckError(clGetDeviceIDs(platform(), CL_DEVICE_TYPE_ALL, num_devices, devices.data(), nullptr));
