@@ -236,7 +236,7 @@ class Device {
     auto result = std::string{};
     result.resize(bytes);
     CheckError(clGetDeviceInfo(device_, info, bytes, &result[0], nullptr));
-    return result;
+    return std::string{result.c_str()}; // Removes any trailing '\0'-characters
   }
 };
 
