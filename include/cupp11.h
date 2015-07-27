@@ -401,10 +401,10 @@ class Buffer {
     CheckError(cuMemAlloc(buffer_.get(), size*sizeof(T)));
   }
 
-   // As above, but now with read/write access as a default
-   explicit Buffer(const Context &context, const size_t size):
-     Buffer<T>(context, BufferAccess::kReadWrite, size) {
-   }
+  // As above, but now with read/write access as a default
+  explicit Buffer(const Context &context, const size_t size):
+    Buffer<T>(context, BufferAccess::kReadWrite, size) {
+  }
 
   // Copies from device to host: reading the device buffer a-synchronously
   void ReadAsync(const Queue &queue, const size_t size, T* host) {
