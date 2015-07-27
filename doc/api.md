@@ -167,6 +167,9 @@ Constructor(s):
 * `Buffer(const Context &context, const BufferAccess access, const size_t size)`:
 Initializes a new linear 1D memory buffer on the device of type T. This buffer is allocated with a fixed number of elements given by `size`. Note that the buffer's elements are not initialized. The buffer can be read-only, write-only, or read-write, as specified by the `access` argument.
 
+* `Buffer(const Context &context, const size_t size)`:
+As above, but now defaults to read-write access.
+
 Public method(s):
 
 * `void ReadAsync(const Queue &queue, const size_t size, T* host)` and
