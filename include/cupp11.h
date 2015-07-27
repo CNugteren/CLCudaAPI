@@ -61,12 +61,12 @@ constexpr auto kStringLength = 256;
 // =================================================================================================
 
 // Error occurred in the C++11 CUDA header (this file)
-void Error(const std::string &message) {
+inline void Error(const std::string &message) {
   throw std::runtime_error("Internal CUDA error: "+message);
 }
 
 // Error occurred in the CUDA driver API
-void CheckError(const CUresult status) {
+inline void CheckError(const CUresult status) {
   if (status != CUDA_SUCCESS) {
     const char* status_code;
     cuGetErrorName(status, &status_code);
@@ -78,7 +78,7 @@ void CheckError(const CUresult status) {
 }
 
 // Error occurred in the NVIDIA runtime compilation API
-void CheckError(const nvrtcResult status) {
+inline void CheckError(const nvrtcResult status) {
   if (status != NVRTC_SUCCESS) {
     const char* status_string = nvrtcGetErrorString(status);
     throw std::runtime_error("Internal CUDA error: "+std::string{status_string});
