@@ -551,7 +551,7 @@ class Kernel {
 
   // Sets a kernel argument at the indicated position
   template <typename T>
-  void SetArgument(const size_t index, T &value) {
+  void SetArgument(const size_t index, const T &value) {
     CheckError(clSetKernelArg(*kernel_, static_cast<cl_uint>(index), sizeof(T), &value));
   }
   template <typename T>

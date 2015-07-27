@@ -212,8 +212,8 @@ Retrieves a new kernel from a compiled program. The kernel name is given as the 
 
 Public method(s):
 
-* `template <typename T> void SetArgument(const size_t index, T &value)`:
-Method to set a kernel argument. The argument itself (`value`) has to be a non-const l-value, since its address it passed to the OpenCL/CUDA back-end. The argument `index` specifies the position in the list of kernel arguments. The argument `value` can also be a `Claduc::Buffer`.
+* `template <typename T> void SetArgument(const size_t index, const T &value)`:
+Method to set a kernel argument (l-value or r-value). The argument `index` specifies the position in the list of kernel arguments. The argument `value` can also be a `Claduc::Buffer`.
 
 * `template <typename... Args> void SetArguments(Args&... args)`: As above, but now sets all arguments in one go, starting at index 0. This overwrites any previous arguments (if any). The parameter pack `args` takes any number of arguments of different types, including `Claduc::Buffer`.
 

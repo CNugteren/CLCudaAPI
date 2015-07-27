@@ -499,11 +499,15 @@ class Kernel {
     CheckError(cuModuleGetFunction(&kernel_, module_, name.c_str()));
   }
 
-  // Sets a kernel argument at the indicated position
+  // Sets a kernel argument at the indicated position. This stores both the value of the argument
+  // (as raw bytes) and the index indicating where this value can be found.
   template <typename T>
-  void SetArgument(const size_t index, T &value) {
-    if (index >= arguments_.size()) { arguments_.resize(index+1); }
-    arguments_[index] = &value;
+  void SetArgument(const size_t index, const T &value) {
+    if (index >= arguments_indices_.size()) { arguments_indices_.resize(index+1); }
+    arguments_indices_[index] = arguments_data_.size();
+    for (auto j=size_t(0); j<sizeof(T); ++j) {
+      arguments_data_.push_back(reinterpret_cast<const char*>(&value)[j]);
+    }
   }
   template <typename T>
   void SetArgument(const size_t index, Buffer<T> &value) {
@@ -514,7 +518,8 @@ class Kernel {
   // arguments using 'SetArgument' or 'SetArguments'.
   template <typename... Args>
   void SetArguments(Args&... args) {
-    arguments_.clear();
+    arguments_indices_.clear();
+    arguments_data_.clear();
     SetArgumentsRecursive(0, args...);
   }
 
@@ -537,10 +542,16 @@ class Kernel {
     for (auto i=size_t{0}; i<local.size(); ++i) { grid[i] = global[i]/local[i]; }
     for (auto i=size_t{0}; i<local.size(); ++i) { block[i] = local[i]; }
 
+    // Creates the array of pointers from the arrays of indices & data
+    std::vector<void*> pointers;
+    for (auto &index: arguments_indices_) {
+      pointers.push_back(&arguments_data_[index]);
+    }
+
     // Launches the kernel, its execution time is recorded by events
     CheckError(cuEventRecord(event.start(), queue()));
     CheckError(cuLaunchKernel(kernel_, grid[0], grid[1], grid[2], block[0], block[1], block[2],
-                              0, queue(), arguments_.data(), nullptr));
+                              0, queue(), pointers.data(), nullptr));
     CheckError(cuEventRecord(event.end(), queue()));
   }
 
@@ -550,7 +561,8 @@ class Kernel {
  private:
   CUmodule module_;
   CUfunction kernel_;
-  std::vector<void*> arguments_;
+  std::vector<size_t> arguments_indices_; // Indices of the arguments
+  std::vector<char> arguments_data_; // The arguments data as raw bytes
 
   // Internal implementation for the recursive SetArguments function.
   template <typename T>
