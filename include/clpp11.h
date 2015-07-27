@@ -64,7 +64,7 @@ inline void Error(const std::string &message) {
   throw std::runtime_error("Internal OpenCL error: "+message);
 }
 
-// Error occurred in the CUDA driver API
+// Error occurred in OpenCL
 inline void CheckError(const cl_int status) {
   if (status != CL_SUCCESS) {
     throw std::runtime_error("Internal OpenCL error: "+std::to_string(status));
