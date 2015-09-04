@@ -587,6 +587,13 @@ class Kernel {
                                       0, nullptr, &(event())));
   }
 
+  // As above, but with the default local workgroup size
+  void Launch(const Queue &queue, const std::vector<size_t> &global, Event &event) {
+    CheckError(clEnqueueNDRangeKernel(queue(), *kernel_, static_cast<cl_uint>(global.size()),
+                                      nullptr, global.data(), nullptr,
+                                      0, nullptr, &(event())));
+  }
+
   // Accessor to the private data-member
   const cl_kernel& operator()() const { return *kernel_; }
  private:

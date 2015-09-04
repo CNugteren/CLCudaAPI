@@ -6,6 +6,7 @@ Version 3.0:
   * Platform::NumDevices
   * Buffer::Buffer (a constructor with default read-write access)
   * Buffer::Buffer (a constructor filled with data from C++ start/end iterators)
+  * Kernel::Launch (version with default OpenCL workgroup size)
 
 Version 2.0 (2015-07-13):
 - Allows device program string to be moved into Program at construction

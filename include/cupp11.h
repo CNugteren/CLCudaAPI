@@ -557,6 +557,12 @@ class Kernel {
     CheckError(cuEventRecord(event.end(), queue()));
   }
 
+  // As above, but with the default local workgroup size
+  // TODO: Implement this function
+  void Launch(const Queue &queue, const std::vector<size_t> &global, Event &event) {
+    Error("launching with a default workgroup size is not implemented for the CUDA back-end");
+  }
+
   // Accessors to the private data-members
   const CUfunction& operator()() const { return kernel_; }
   CUfunction operator()() { return kernel_; }
