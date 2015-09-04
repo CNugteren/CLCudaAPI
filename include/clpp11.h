@@ -442,6 +442,17 @@ class Buffer {
     Buffer<T>(context, BufferAccess::kReadWrite, size) {
   }
 
+  // Constructs a new buffer based on an existing host-container
+  template <typename Iterator>
+  explicit Buffer(const Context &context, const Queue &queue, Iterator start, Iterator end):
+    Buffer(context, BufferAccess::kReadWrite, end - start) {
+    auto size = end - start;
+    auto pointer = &*start;
+    CheckError(clEnqueueWriteBuffer(queue(), *buffer_, CL_FALSE, 0, size*sizeof(T), pointer, 0,
+                                    nullptr, nullptr));
+    queue.Finish();
+  }
+
   // Copies from device to host: reading the device buffer a-synchronously
   void ReadAsync(const Queue &queue, const size_t size, T* host) {
     if (access_ == BufferAccess::kWriteOnly) { Error("reading from a write-only buffer"); }

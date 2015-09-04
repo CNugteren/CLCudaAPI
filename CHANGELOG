@@ -4,7 +4,8 @@ Version 3.0:
 - SetArgument now takes both l-value and r-value arguments
 - Added new methods to the API:
   * Platform::NumDevices
-  * Buffer::Buffer (constructor with default read-write access)
+  * Buffer::Buffer (a constructor with default read-write access)
+  * Buffer::Buffer (a constructor filled with data from C++ start/end iterators)
 
 Version 2.0 (2015-07-13):
 - Allows device program string to be moved into Program at construction

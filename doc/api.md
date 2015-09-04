@@ -170,6 +170,9 @@ Initializes a new linear 1D memory buffer on the device of type T. This buffer i
 * `Buffer(const Context &context, const size_t size)`:
 As above, but now defaults to read-write access.
 
+* `template <typename Iterator> Buffer(const Context &context, const Queue &queue, Iterator start, Iterator end)`:
+Creates a new buffer based on data in a linear C++ container (such as `std::vector`). The size is determined by the difference between the end and start iterators. This method both creates a new buffer and writes data to it. It synchronises the queue before returning.
+
 Public method(s):
 
 * `void ReadAsync(const Queue &queue, const size_t size, T* host)` and

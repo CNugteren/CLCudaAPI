@@ -108,12 +108,9 @@ int main() {
   for (auto i=size_t{0}; i<host_a.size(); ++i) { host_a[i] = static_cast<float>(i); }
   for (auto &item: host_b) { item = 0.0f; }
 
-  // Creates two new device buffers and copies the host data to these device buffers. Both buffers
-  // in this example are readable and writable (default option).
-  auto dev_a = CLCudaAPI::Buffer<float>(context, size);
-  auto dev_b = CLCudaAPI::Buffer<float>(context, size);
-  dev_a.Write(queue, size, host_a);
-  dev_b.Write(queue, size, host_b);
+  // Creates two new device buffers and copies the host data to these device buffers.
+  auto dev_a = CLCudaAPI::Buffer<float>(context, queue, host_a.begin(), host_a.end());
+  auto dev_b = CLCudaAPI::Buffer<float>(context, queue, host_b.begin(), host_b.end());
 
   // Creates the 'multiply' kernel from the compiled program and sets the three arguments. Note that
   // the indices of the arguments have to be set according to their order in the kernel.
