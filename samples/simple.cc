@@ -1,6 +1,6 @@
 
 // =================================================================================================
-// This file is part of the Claduc project. The project is licensed under Apache Version 2.0. This
+// This file is part of the CLCudaAPI project. The project is licensed under Apache Version 2.0. The
 // project loosely follows the Google C++ styleguide and uses a tab-size of two spaces and a max-
 // width of 100 characters per line.
 //
@@ -9,7 +9,7 @@
 //
 // This file implements a relatively simple toy example, in which an input vector is multiplied by
 // a constant to produce an output vector. This example demonstrates the basic usage of the C++11
-// interfaces to CUDA and OpenCL through Claduc.
+// interfaces to CUDA and OpenCL through CLCudaAPI.
 //
 // =================================================================================================
 //
@@ -73,30 +73,30 @@ int main() {
   constexpr auto platform_id = 0;
   constexpr auto device_id = 0;
 
-  // Initializes the Claduc platform and device. This initializes the OpenCL/CUDA back-end and
+  // Initializes the CLCudaAPI platform and device. This initializes the OpenCL/CUDA back-end and
   // selects a specific device on the platform. The device class has methods to retrieve properties
   // such as the device name and vendor. More examples of device properties are given in the
   // `device_info.cc` sample program. 
   printf("\n## Initializing...\n");
-  auto platform = Claduc::Platform(platform_id);
-  auto device = Claduc::Device(platform, device_id);
+  auto platform = CLCudaAPI::Platform(platform_id);
+  auto device = CLCudaAPI::Device(platform, device_id);
   printf(" > Running on device '%s' of '%s'\n", device.Name().c_str(), device.Vendor().c_str());
 
-  // Creates a new Claduc context and queue for this device. The queue can be used to schedule
+  // Creates a new CLCudaAPI context and queue for this device. The queue can be used to schedule
   // commands such as launching a kernel or performing a device-host memory copy.
-  auto context = Claduc::Context(device);
-  auto queue = Claduc::Queue(context, device);
+  auto context = CLCudaAPI::Context(device);
+  auto queue = CLCudaAPI::Queue(context, device);
 
-  // Creates a new Claduc event to be able to time kernels
-  auto event = Claduc::Event();
+  // Creates a new CLCudaAPI event to be able to time kernels
+  auto event = CLCudaAPI::Event();
 
   // Creates a new program based on the kernel string. Then, builds this program and checks for
   // any compilation errors. If there are any, they are printed and execution is halted.
   printf("## Compiling the kernel...\n");
-  auto program = Claduc::Program(context, program_string);
+  auto program = CLCudaAPI::Program(context, program_string);
   auto compiler_options = std::vector<std::string>{};
   auto build_status = program.Build(device, compiler_options);
-  if (build_status != Claduc::BuildStatus::kSuccess) {
+  if (build_status != CLCudaAPI::BuildStatus::kSuccess) {
     auto message = program.GetBuildInfo(device);
     printf(" > Compiler error(s)/warning(s) found:\n%s\n", message.c_str());
     return 1;
@@ -108,16 +108,13 @@ int main() {
   for (auto i=size_t{0}; i<host_a.size(); ++i) { host_a[i] = static_cast<float>(i); }
   for (auto &item: host_b) { item = 0.0f; }
 
-  // Creates two new device buffers and copies the host data to these device buffers. Both buffers
-  // in this example are readable and writable.
-  auto dev_a = Claduc::Buffer<float>(context, Claduc::BufferAccess::kReadWrite, size);
-  auto dev_b = Claduc::Buffer<float>(context, Claduc::BufferAccess::kReadWrite, size);
-  dev_a.Write(queue, size, host_a);
-  dev_b.Write(queue, size, host_b);
+  // Creates two new device buffers and copies the host data to these device buffers.
+  auto dev_a = CLCudaAPI::Buffer<float>(context, queue, host_a.begin(), host_a.end());
+  auto dev_b = CLCudaAPI::Buffer<float>(context, queue, host_b.begin(), host_b.end());
 
   // Creates the 'multiply' kernel from the compiled program and sets the three arguments. Note that
   // the indices of the arguments have to be set according to their order in the kernel.
-  auto kernel = Claduc::Kernel(program, "multiply");
+  auto kernel = CLCudaAPI::Kernel(program, "multiply");
   kernel.SetArgument(0, dev_a);
   kernel.SetArgument(1, dev_b);
   kernel.SetArgument(2, multiply_factor);

@@ -1,6 +1,6 @@
 
 // =================================================================================================
-// This file is part of the Claduc project. The project is licensed under Apache Version 2.0. This
+// This file is part of the CLCudaAPI project. The project is licensed under Apache Version 2.0. The
 // project loosely follows the Google C++ styleguide and uses a tab-size of two spaces and a max-
 // width of 100 characters per line.
 //
@@ -8,7 +8,7 @@
 //   Cedric Nugteren <www.cedricnugteren.nl>
 //
 // This file demonstrates more advanced usage of the C++11 interfaces to CUDA and OpenCL through
-// Claduc. This includes 2D thread dimensions and asynchronous host-device communication. The
+// CLCudaAPI. This includes 2D thread dimensions and asynchronous host-device communication. The
 // example conserns a 2D convolution kernel with a very simple hard-coded 3x3 blur filter.
 //
 // =================================================================================================
@@ -97,33 +97,33 @@ int main() {
   constexpr auto platform_id = 0;
   constexpr auto device_id = 0;
 
-  // Initializes the Claduc platform and device. This initializes the OpenCL/CUDA back-end and
+  // Initializes the CLCudaAPI platform and device. This initializes the OpenCL/CUDA back-end and
   // selects a specific device on the platform. The device class has methods to retrieve properties
   // such as the device name and vendor. More examples of device properties are given in the
   // `device_info.cc` sample program. 
   printf("\n## Initializing...\n");
-  auto platform = Claduc::Platform(platform_id);
-  auto device = Claduc::Device(platform, device_id);
+  auto platform = CLCudaAPI::Platform(platform_id);
+  auto device = CLCudaAPI::Device(platform, device_id);
   printf(" > Running on device '%s' of '%s'\n", device.Name().c_str(), device.Vendor().c_str());
 
-  // Creates a new Claduc context and queue for this device. The queue can be used to schedule
+  // Creates a new CLCudaAPI context and queue for this device. The queue can be used to schedule
   // commands such as launching a kernel or performing a device-host memory copy.
-  auto context = Claduc::Context(device);
-  auto queue = Claduc::Queue(context, device);
+  auto context = CLCudaAPI::Context(device);
+  auto queue = CLCudaAPI::Queue(context, device);
 
-  // Creates a new Claduc event to be able to time kernels
-  auto event = Claduc::Event();
+  // Creates a new CLCudaAPI event to be able to time kernels
+  auto event = CLCudaAPI::Event();
 
   // Creates a new program based on the kernel string. Note that the kernel string is moved-out when
   // constructing the program to save copying: it should no longer be used in the remainder of this
   // function.
-  auto program = Claduc::Program(context, std::move(program_string));
+  auto program = CLCudaAPI::Program(context, std::move(program_string));
 
   // Builds this program and checks for any compilation errors. If there are any, they are printed
   // and execution is halted.
   printf("## Compiling the kernel...\n");
   auto build_status = program.Build(device, compiler_options);
-  if (build_status != Claduc::BuildStatus::kSuccess) {
+  if (build_status != CLCudaAPI::BuildStatus::kSuccess) {
     auto message = program.GetBuildInfo(device);
     printf(" > Compiler error(s)/warning(s) found:\n%s\n", message.c_str());
     return 1;
@@ -133,8 +133,8 @@ int main() {
   // will create page-locked memories, benefiting from higher bandwidth when copying between the
   // host and device. These buffers mimic std::vector to some extend and can therefore be filled
   // using either the '[]' operator or range-based for-loops.
-  auto host_a = Claduc::BufferHost<float>(context, size);
-  auto host_b = Claduc::BufferHost<float>(context, size);
+  auto host_a = CLCudaAPI::BufferHost<float>(context, size);
+  auto host_b = CLCudaAPI::BufferHost<float>(context, size);
   for (auto x=size_t{0}; x<size_x; ++x) {
     for (auto y=size_t{0}; y<size_y; ++y) {
       host_a[y*size_x + x] = static_cast<float>(x + y/4);
@@ -145,8 +145,8 @@ int main() {
   // Creates two new device buffers and prints the sizes of these device buffers. Both buffers
   // in this example are readable and writable.
   printf("## Allocating device memory...\n");
-  auto dev_a = Claduc::Buffer<float>(context, Claduc::BufferAccess::kReadWrite, size);
-  auto dev_b = Claduc::Buffer<float>(context, Claduc::BufferAccess::kReadWrite, size);
+  auto dev_a = CLCudaAPI::Buffer<float>(context, CLCudaAPI::BufferAccess::kReadWrite, size);
+  auto dev_b = CLCudaAPI::Buffer<float>(context, CLCudaAPI::BufferAccess::kReadWrite, size);
   printf(" > Size of buffer A is %lu bytes\n", dev_a.GetSize());
   printf(" > Size of buffer B is %lu bytes\n", dev_b.GetSize());
 
@@ -158,7 +158,7 @@ int main() {
 
   // Creates the 'convolution' kernel from the compiled program and sets the four arguments. Note
   // that this uses the direct form instead of setting each argument separately.
-  auto kernel = Claduc::Kernel(program, "convolution");
+  auto kernel = CLCudaAPI::Kernel(program, "convolution");
   auto size_x_int = static_cast<int>(size_x);
   auto size_y_int = static_cast<int>(size_y);
   kernel.SetArguments(dev_a, dev_b, size_x_int, size_y_int);
@@ -185,7 +185,7 @@ int main() {
 
   // For illustration purposes, this copies the result into a new device buffer. The old result
   // buffer 'dev_b' is now no longer used.
-  auto dev_b_copy = Claduc::Buffer<float>(context, Claduc::BufferAccess::kReadWrite, size);
+  auto dev_b_copy = CLCudaAPI::Buffer<float>(context, CLCudaAPI::BufferAccess::kReadWrite, size);
   dev_b.CopyTo(queue, size, dev_b_copy);
 
   // Reads the results back from the new copy into the host memory

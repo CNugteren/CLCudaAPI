@@ -1,6 +1,6 @@
 
 // =================================================================================================
-// This file is part of the Claduc project. The project is licensed under Apache Version 2.0. This
+// This file is part of the CLCudaAPI project. The project is licensed under Apache Version 2.0. The
 // project loosely follows the Google C++ styleguide and uses a tab-size of two spaces and a max-
 // width of 100 characters per line.
 //
@@ -12,13 +12,7 @@
 // Portability here means that a similar header exists for CUDA with the same classes and
 // interfaces. In other words, moving from the OpenCL API to the CUDA API becomes a one-line change.
 //
-// Version 2.0 (2015-07-13):
-// - New methods: Device::CoreClock, Device::ComputeUnits, Device::MemorySize, Device::MemoryClock,
-//   Device::MemoryBusWidth, Program::GetIR, Kernel::SetArguments
-// - Allows device program string to be moved into Program at construction
-//
-// Version 1.0 (2015-07-09):
-// - Initial version
+// This is version 3.0 of CLCudaAPI.
 //
 // =================================================================================================
 //
@@ -38,8 +32,8 @@
 //
 // =================================================================================================
 
-#ifndef CLADUC_CLPP11_H_
-#define CLADUC_CLPP11_H_
+#ifndef CLCUDAAPI_CLPP11_H_
+#define CLCUDAAPI_CLPP11_H_
 
 // C++
 #include <algorithm> // std::copy
@@ -56,16 +50,16 @@
   #include <CL/opencl.h>
 #endif
 
-namespace Claduc {
+namespace CLCudaAPI {
 // =================================================================================================
 
 // Error occurred in the C++11 OpenCL header (this file)
-void Error(const std::string &message) {
+inline void Error(const std::string &message) {
   throw std::runtime_error("Internal OpenCL error: "+message);
 }
 
-// Error occurred in the CUDA driver API
-void CheckError(const cl_int status) {
+// Error occurred in OpenCL
+inline void CheckError(const cl_int status) {
   if (status != CL_SUCCESS) {
     throw std::runtime_error("Internal OpenCL error: "+std::to_string(status));
   }
@@ -124,6 +118,13 @@ class Platform {
     platform_ = platforms[platform_id];
   }
 
+  // Returns the number of devices on this platform
+  size_t NumDevices() const {
+    auto result = cl_uint{0};
+    CheckError(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_ALL, 0, nullptr, &result));
+    return result;
+  }
+
   // Accessor to the private data-member
   const cl_platform_id& operator()() const { return platform_; }
  private:
@@ -141,8 +142,7 @@ class Device {
 
   // Initialize the device. Note that this constructor can throw exceptions!
   explicit Device(const Platform &platform, const size_t device_id) {
-    auto num_devices = cl_uint{0};
-    CheckError(clGetDeviceIDs(platform(), CL_DEVICE_TYPE_ALL, 0, nullptr, &num_devices));
+    auto num_devices = platform.NumDevices();
     if (num_devices == 0) { Error("no devices found"); }
     auto devices = std::vector<cl_device_id>(num_devices);
     CheckError(clGetDeviceIDs(platform(), CL_DEVICE_TYPE_ALL, num_devices, devices.data(), nullptr));
@@ -230,7 +230,7 @@ class Device {
     auto result = std::string{};
     result.resize(bytes);
     CheckError(clGetDeviceInfo(device_, info, bytes, &result[0], nullptr));
-    return result;
+    return std::string{result.c_str()}; // Removes any trailing '\0'-characters
   }
 };
 
@@ -439,6 +439,22 @@ class Buffer {
     CheckError(status);
   }
 
+  // As above, but now with read/write access as a default
+  explicit Buffer(const Context &context, const size_t size):
+    Buffer<T>(context, BufferAccess::kReadWrite, size) {
+  }
+
+  // Constructs a new buffer based on an existing host-container
+  template <typename Iterator>
+  explicit Buffer(const Context &context, const Queue &queue, Iterator start, Iterator end):
+    Buffer(context, BufferAccess::kReadWrite, end - start) {
+    auto size = end - start;
+    auto pointer = &*start;
+    CheckError(clEnqueueWriteBuffer(queue(), *buffer_, CL_FALSE, 0, size*sizeof(T), pointer, 0,
+                                    nullptr, nullptr));
+    queue.Finish();
+  }
+
   // Copies from device to host: reading the device buffer a-synchronously
   void ReadAsync(const Queue &queue, const size_t size, T* host) {
     if (access_ == BufferAccess::kWriteOnly) { Error("reading from a write-only buffer"); }
@@ -540,7 +556,7 @@ class Kernel {
 
   // Sets a kernel argument at the indicated position
   template <typename T>
-  void SetArgument(const size_t index, T &value) {
+  void SetArgument(const size_t index, const T &value) {
     CheckError(clSetKernelArg(*kernel_, static_cast<cl_uint>(index), sizeof(T), &value));
   }
   template <typename T>
@@ -573,6 +589,13 @@ class Kernel {
                                       0, nullptr, &(event())));
   }
 
+  // As above, but with the default local workgroup size
+  void Launch(const Queue &queue, const std::vector<size_t> &global, Event &event) {
+    CheckError(clEnqueueNDRangeKernel(queue(), *kernel_, static_cast<cl_uint>(global.size()),
+                                      nullptr, global.data(), nullptr,
+                                      0, nullptr, &(event())));
+  }
+
   // Accessor to the private data-member
   const cl_kernel& operator()() const { return *kernel_; }
  private:
@@ -591,7 +614,7 @@ class Kernel {
 };
 
 // =================================================================================================
-} // namespace Claduc
+} // namespace CLCudaAPI
 
-// CLADUC_CLPP11_H_
+// CLCUDAAPI_CLPP11_H_
 #endif

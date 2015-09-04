@@ -1,6 +1,6 @@
 
 // =================================================================================================
-// This file is part of the Claduc project. The project is licensed under Apache Version 2.0. This
+// This file is part of the CLCudaAPI project. The project is licensed under Apache Version 2.0. The
 // project loosely follows the Google C++ styleguide and uses a tab-size of two spaces and a max-
 // width of 100 characters per line.
 //
@@ -8,7 +8,7 @@
 //   Cedric Nugteren <www.cedricnugteren.nl>
 //
 // This file implements a generic version of 'clinfo' (OpenCL) and 'deviceQuery' (CUDA). This
-// demonstrates some of the features of Claduc's generic Device class.
+// demonstrates some of the features of CLCudaAPI's generic Device class.
 //
 // =================================================================================================
 //
@@ -49,10 +49,10 @@ int main() {
   constexpr auto platform_id = 0;
   constexpr auto device_id = 0;
 
-  // Initializes the Claduc platform and device. This initializes the OpenCL/CUDA back-end and
+  // Initializes the CLCudaAPI platform and device. This initializes the OpenCL/CUDA back-end and
   // selects a specific device on the platform.
-  auto platform = Claduc::Platform(platform_id);
-  auto device = Claduc::Device(platform, device_id);
+  auto platform = CLCudaAPI::Platform(platform_id);
+  auto device = CLCudaAPI::Device(platform, device_id);
 
   // Prints information about the chosen device. Most of these results should stay the same when
   // switching between the CUDA and OpenCL back-ends.

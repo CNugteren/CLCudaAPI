@@ -1,6 +1,6 @@
 
 // =================================================================================================
-// This file is part of the Claduc project. The project is licensed under Apache Version 2.0. This
+// This file is part of the CLCudaAPI project. The project is licensed under Apache Version 2.0. The
 // project loosely follows the Google C++ styleguide and uses a tab-size of two spaces and a max-
 // width of 100 characters per line.
 //
@@ -12,13 +12,7 @@
 // Portability here means that a similar header exists for OpenCL with the same classes and
 // interfaces. In other words, moving from the CUDA API to the OpenCL API becomes a one-line change.
 //
-// Version 2.0 (2015-07-13):
-// - New methods: Device::CoreClock, Device::ComputeUnits, Device::MemorySize, Device::MemoryClock,
-//   Device::MemoryBusWidth, Program::GetIR, Kernel::SetArguments
-// - Allows device program string to be moved into Program at construction
-//
-// Version 1.0 (2015-07-09):
-// - Initial version
+// This is version 3.0 of CLCudaAPI.
 //
 // =================================================================================================
 //
@@ -38,8 +32,8 @@
 //
 // =================================================================================================
 
-#ifndef CLADUC_CUPP11_H_
-#define CLADUC_CUPP11_H_
+#ifndef CLCUDAAPI_CUPP11_H_
+#define CLCUDAAPI_CUPP11_H_
 
 // C++
 #include <algorithm> // std::copy
@@ -52,7 +46,7 @@
 #include <cuda.h>    // CUDA driver API
 #include <nvrtc.h>   // NVIDIA runtime compilation API
 
-namespace Claduc {
+namespace CLCudaAPI {
 // =================================================================================================
 
 // Max-length of strings
@@ -61,12 +55,12 @@ constexpr auto kStringLength = 256;
 // =================================================================================================
 
 // Error occurred in the C++11 CUDA header (this file)
-void Error(const std::string &message) {
+inline void Error(const std::string &message) {
   throw std::runtime_error("Internal CUDA error: "+message);
 }
 
 // Error occurred in the CUDA driver API
-void CheckError(const CUresult status) {
+inline void CheckError(const CUresult status) {
   if (status != CUDA_SUCCESS) {
     const char* status_code;
     cuGetErrorName(status, &status_code);
@@ -78,7 +72,7 @@ void CheckError(const CUresult status) {
 }
 
 // Error occurred in the NVIDIA runtime compilation API
-void CheckError(const nvrtcResult status) {
+inline void CheckError(const nvrtcResult status) {
   if (status != NVRTC_SUCCESS) {
     const char* status_string = nvrtcGetErrorString(status);
     throw std::runtime_error("Internal CUDA error: "+std::string{status_string});
@@ -121,10 +115,17 @@ class Event {
 class Platform {
  public:
 
-  // Initialize the platform. Note that the platform ID variable is not actually used for CUDA.
+  // Initializes the platform. Note that the platform ID variable is not actually used for CUDA.
   explicit Platform(const size_t platform_id):
     platform_id_(platform_id) {
     CheckError(cuInit(0));
+  }
+
+  // Returns the number of devices on this platform
+  size_t NumDevices() const {
+    auto result = 0;
+    CheckError(cuDeviceGetCount(&result));
+    return result;
   }
 
  private:
@@ -142,8 +143,8 @@ class Device {
 
   // Initialization
   explicit Device(const Platform &platform, const size_t device_id) {
-    auto num_devices = 0;
-    CheckError(cuDeviceGetCount(&num_devices));
+    auto num_devices = platform.NumDevices();
+    if (num_devices == 0) { Error("no devices found"); }
     CheckError(cuDeviceGet(&device_, device_id % num_devices));
   }
 
@@ -394,6 +395,21 @@ class Buffer {
     CheckError(cuMemAlloc(buffer_.get(), size*sizeof(T)));
   }
 
+  // As above, but now with read/write access as a default
+  explicit Buffer(const Context &context, const size_t size):
+    Buffer<T>(context, BufferAccess::kReadWrite, size) {
+  }
+
+  // Constructs a new buffer based on an existing host-container
+  template <typename Iterator>
+  explicit Buffer(const Context &context, const Queue &queue, Iterator start, Iterator end):
+    Buffer(context, BufferAccess::kReadWrite, end - start) {
+    auto size = end - start;
+    auto pointer = &*start;
+    CheckError(cuMemcpyHtoDAsync(*buffer_, pointer, size*sizeof(T), queue()));
+    queue.Finish();
+  }
+
   // Copies from device to host: reading the device buffer a-synchronously
   void ReadAsync(const Queue &queue, const size_t size, T* host) {
     if (access_ == BufferAccess::kWriteOnly) { Error("reading from a write-only buffer"); }
@@ -487,11 +503,15 @@ class Kernel {
     CheckError(cuModuleGetFunction(&kernel_, module_, name.c_str()));
   }
 
-  // Sets a kernel argument at the indicated position
+  // Sets a kernel argument at the indicated position. This stores both the value of the argument
+  // (as raw bytes) and the index indicating where this value can be found.
   template <typename T>
-  void SetArgument(const size_t index, T &value) {
-    if (index >= arguments_.size()) { arguments_.resize(index+1); }
-    arguments_[index] = &value;
+  void SetArgument(const size_t index, const T &value) {
+    if (index >= arguments_indices_.size()) { arguments_indices_.resize(index+1); }
+    arguments_indices_[index] = arguments_data_.size();
+    for (auto j=size_t(0); j<sizeof(T); ++j) {
+      arguments_data_.push_back(reinterpret_cast<const char*>(&value)[j]);
+    }
   }
   template <typename T>
   void SetArgument(const size_t index, Buffer<T> &value) {
@@ -502,7 +522,8 @@ class Kernel {
   // arguments using 'SetArgument' or 'SetArguments'.
   template <typename... Args>
   void SetArguments(Args&... args) {
-    arguments_.clear();
+    arguments_indices_.clear();
+    arguments_data_.clear();
     SetArgumentsRecursive(0, args...);
   }
 
@@ -525,11 +546,23 @@ class Kernel {
     for (auto i=size_t{0}; i<local.size(); ++i) { grid[i] = global[i]/local[i]; }
     for (auto i=size_t{0}; i<local.size(); ++i) { block[i] = local[i]; }
 
+    // Creates the array of pointers from the arrays of indices & data
+    std::vector<void*> pointers;
+    for (auto &index: arguments_indices_) {
+      pointers.push_back(&arguments_data_[index]);
+    }
+
     // Launches the kernel, its execution time is recorded by events
     CheckError(cuEventRecord(event.start(), queue()));
     CheckError(cuLaunchKernel(kernel_, grid[0], grid[1], grid[2], block[0], block[1], block[2],
-                              0, queue(), arguments_.data(), nullptr));
+                              0, queue(), pointers.data(), nullptr));
     CheckError(cuEventRecord(event.end(), queue()));
+  }
+
+  // As above, but with the default local workgroup size
+  // TODO: Implement this function
+  void Launch(const Queue &queue, const std::vector<size_t> &global, Event &event) {
+    Error("launching with a default workgroup size is not implemented for the CUDA back-end");
   }
 
   // Accessors to the private data-members
@@ -538,7 +571,8 @@ class Kernel {
  private:
   CUmodule module_;
   CUfunction kernel_;
-  std::vector<void*> arguments_;
+  std::vector<size_t> arguments_indices_; // Indices of the arguments
+  std::vector<char> arguments_data_; // The arguments data as raw bytes
 
   // Internal implementation for the recursive SetArguments function.
   template <typename T>
@@ -553,7 +587,7 @@ class Kernel {
 };
 
 // =================================================================================================
-} // namespace Claduc
+} // namespace CLCudaAPI
 
-// CLADUC_CUPP11_H_
+// CLCUDAAPI_CUPP11_H_
 #endif

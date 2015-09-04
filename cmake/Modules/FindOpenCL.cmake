@@ -1,6 +1,6 @@
 
 # ==================================================================================================
-# This file is part of the Claduc project. The project is licensed under Apache Version 2.0. This
+# This file is part of the CLCudaAPI project. The project is licensed under Apache Version 2.0. This
 # project loosely follows the Google C++ styleguide and uses a tab-size of two spaces and a max-
 # width of 100 characters per line.
 #
