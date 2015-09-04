@@ -1,6 +1,6 @@
 
 // =================================================================================================
-// This file is part of the Claduc project. The project is licensed under Apache Version 2.0. This
+// This file is part of the CLCudaAPI project. The project is licensed under Apache Version 2.0. The
 // project loosely follows the Google C++ styleguide and uses a tab-size of two spaces and a max-
 // width of 100 characters per line.
 //
@@ -38,8 +38,8 @@
 //
 // =================================================================================================
 
-#ifndef CLADUC_CLPP11_H_
-#define CLADUC_CLPP11_H_
+#ifndef CLCUDAAPI_CLPP11_H_
+#define CLCUDAAPI_CLPP11_H_
 
 // C++
 #include <algorithm> // std::copy
@@ -56,7 +56,7 @@
   #include <CL/opencl.h>
 #endif
 
-namespace Claduc {
+namespace CLCudaAPI {
 // =================================================================================================
 
 // Error occurred in the C++11 OpenCL header (this file)
@@ -602,7 +602,7 @@ class Kernel {
 };
 
 // =================================================================================================
-} // namespace Claduc
+} // namespace CLCudaAPI
 
-// CLADUC_CLPP11_H_
+// CLCUDAAPI_CLPP11_H_
 #endif

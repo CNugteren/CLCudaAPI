@@ -1,6 +1,6 @@
 
 // =================================================================================================
-// This file is part of the Claduc project. The project is licensed under Apache Version 2.0. This
+// This file is part of the CLCudaAPI project. The project is licensed under Apache Version 2.0. The
 // project loosely follows the Google C++ styleguide and uses a tab-size of two spaces and a max-
 // width of 100 characters per line.
 //
@@ -38,8 +38,8 @@
 //
 // =================================================================================================
 
-#ifndef CLADUC_CUPP11_H_
-#define CLADUC_CUPP11_H_
+#ifndef CLCUDAAPI_CUPP11_H_
+#define CLCUDAAPI_CUPP11_H_
 
 // C++
 #include <algorithm> // std::copy
@@ -52,7 +52,7 @@
 #include <cuda.h>    // CUDA driver API
 #include <nvrtc.h>   // NVIDIA runtime compilation API
 
-namespace Claduc {
+namespace CLCudaAPI {
 // =================================================================================================
 
 // Max-length of strings
@@ -577,7 +577,7 @@ class Kernel {
 };
 
 // =================================================================================================
-} // namespace Claduc
+} // namespace CLCudaAPI
 
-// CLADUC_CUPP11_H_
+// CLCUDAAPI_CUPP11_H_
 #endif

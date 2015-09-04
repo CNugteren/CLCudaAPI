@@ -1,6 +1,6 @@
 
 # ==================================================================================================
-# This file is part of the Claduc project. The project is licensed under Apache Version 2.0. This
+# This file is part of the CLCudaAPI project. The project is licensed under Apache Version 2.0. This
 # project loosely follows the Google C++ styleguide and uses a tab-size of two spaces and a max-
 # width of 100 characters per line.
 #
@@ -30,9 +30,9 @@
 
 # CMake project details
 cmake_minimum_required(VERSION 2.8.10)
-project("Claduc" CXX)
-set(Claduc_VERSION_MAJOR 2)
-set(Claduc_VERSION_MINOR 0)
+project("CLCudaAPI" CXX)
+set(CLCudaAPI_VERSION_MAJOR 2)
+set(CLCudaAPI_VERSION_MINOR 0)
 
 # ==================================================================================================
 
@@ -89,7 +89,7 @@ endif()
 # ==================================================================================================
 
 # Include directories: C++11 headers and OpenCL/CUDA includes
-include_directories(${Claduc_SOURCE_DIR}/include)
+include_directories(${CLCudaAPI_SOURCE_DIR}/include)
 if(USE_OPENCL)
   include_directories(${OPENCL_INCLUDE_DIRS})
 else()
