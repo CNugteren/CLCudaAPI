@@ -1,5 +1,5 @@
 
-Version 3.0:
+Version 3.0 (2015-09-04):
 - Renamed the project from 'Claduc' into 'CLCudaAPI'
 - SetArgument now takes both l-value and r-value arguments
 - Added first version of a test infrastructure
