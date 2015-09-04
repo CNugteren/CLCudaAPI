@@ -71,7 +71,7 @@ The requirements to use the CLCudaAPI headers are:
 * OpenCL 1.1 or higher
 * A C++11 compiler (e.g. GCC 4.7 or newer)
 
-If you also want to compile the samples using the provided infrastructure, you'll also need:
+If you also want to compile the samples and tests using the provided infrastructure, you'll also need:
 
 * CMake 2.8.10 or higher
 
@@ -89,6 +89,16 @@ make
 ```
 
 Replace `-DUSE_OPENCL=ON` with `-DUSE_OPENCL=OFF` to use CUDA instead of OpenCL as a back-end. After compilation, the `build` folder will contain a binary for each of the sample programs included in the `samples` subfolder.
+
+
+How do I compile the included test-suite with CMake?
+-------------
+
+Compile the examples (see above) will also compile the tests (unless `-DENABLE_TESTS=OFF` is set). The tests will either use the OpenCL or CUDA back-end, similar to the samples. After compilation, the tests can be run using CTest or as follows:
+
+```bash
+./unit_tests
+```
 
 
 FAQ
