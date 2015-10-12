@@ -1,4 +1,7 @@
 
+Development version:
+- Made 'CopyTo' and 'CopyToAsync' constant methods
+
 Version 3.0 (2015-09-04):
 - Renamed the project from 'Claduc' into 'CLCudaAPI'
 - SetArgument now takes both l-value and r-value arguments

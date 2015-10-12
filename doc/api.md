@@ -195,10 +195,10 @@ Copies `size` elements from a host buffer to the current device buffer. The devi
 `void Write(const Queue &queue, const size_t size, const BufferHost<T> &host)`:
 As above, but now completes the operation before returning.
 
-* `void CopyToAsync(const Queue &queue, const size_t size, const Buffer<T> &destination)`:
+* `void CopyToAsync(const Queue &queue, const size_t size, const Buffer<T> &destination) const`:
 Copies `size` elements from the current device buffer to another device buffer given by `destination`. The destination buffer has to be pre-allocated with a size of at least `size` elements. This method is a-synchronous: it can return before the copy operation is completed.
 
-* `void CopyTo(const Queue &queue, const size_t size, const Buffer<T> &destination)`:
+* `void CopyTo(const Queue &queue, const size_t size, const Buffer<T> &destination) const`:
 As above, but now completes the operation before returning.
 
 * `size_t GetSize() const`:
