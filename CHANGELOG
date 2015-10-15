@@ -1,6 +1,8 @@
 
 Development version:
 - Made 'CopyTo' and 'CopyToAsync' constant methods
+- Added unit tests for Device and Context classes
+- Added compact OpenCL example
 
 Version 3.0 (2015-09-04):
 - Renamed the project from 'Claduc' into 'CLCudaAPI'
