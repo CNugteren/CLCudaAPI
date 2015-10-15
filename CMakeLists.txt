@@ -109,7 +109,7 @@ endif()
 # ==================================================================================================
 
 # Adds the sample programs
-set(SAMPLE_PROGRAMS device_info simple advanced)
+set(SAMPLE_PROGRAMS device_info simple advanced smallest)
 foreach(SAMPLE ${SAMPLE_PROGRAMS})
   add_executable(${SAMPLE} samples/${SAMPLE}.cc)
   if(USE_OPENCL)
