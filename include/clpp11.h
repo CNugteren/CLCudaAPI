@@ -458,56 +458,62 @@ class Buffer {
   }
 
   // Copies from device to host: reading the device buffer a-synchronously
-  void ReadAsync(const Queue &queue, const size_t size, T* host) {
+  void ReadAsync(const Queue &queue, const size_t size, T* host, const size_t offset = 0) {
     if (access_ == BufferAccess::kWriteOnly) { Error("reading from a write-only buffer"); }
-    CheckError(clEnqueueReadBuffer(queue(), *buffer_, CL_FALSE, 0, size*sizeof(T), host, 0,
-                                   nullptr, nullptr));
+    CheckError(clEnqueueReadBuffer(queue(), *buffer_, CL_FALSE, offset*sizeof(T), size*sizeof(T),
+                                   host, 0, nullptr, nullptr));
   }
-  void ReadAsync(const Queue &queue, const size_t size, std::vector<T> &host) {
+  void ReadAsync(const Queue &queue, const size_t size, std::vector<T> &host,
+                 const size_t offset = 0) {
     if (host.size() < size) { Error("target host buffer is too small"); }
-    ReadAsync(queue, size, host.data());
+    ReadAsync(queue, size, host.data(), offset);
   }
-  void ReadAsync(const Queue &queue, const size_t size, BufferHost<T> &host) {
+  void ReadAsync(const Queue &queue, const size_t size, BufferHost<T> &host,
+                 const size_t offset = 0) {
     if (host.size() < size) { Error("target host buffer is too small"); }
-    ReadAsync(queue, size, host.data());
+    ReadAsync(queue, size, host.data(), offset);
   }
 
   // Copies from device to host: reading the device buffer
-  void Read(const Queue &queue, const size_t size, T* host) {
-    ReadAsync(queue, size, host);
+  void Read(const Queue &queue, const size_t size, T* host, const size_t offset = 0) {
+    ReadAsync(queue, size, host, offset);
     queue.Finish();
   }
-  void Read(const Queue &queue, const size_t size, std::vector<T> &host) {
-    Read(queue, size, host.data());
+  void Read(const Queue &queue, const size_t size, std::vector<T> &host, const size_t offset = 0) {
+    Read(queue, size, host.data(), offset);
   }
-  void Read(const Queue &queue, const size_t size, BufferHost<T> &host) {
-    Read(queue, size, host.data());
+  void Read(const Queue &queue, const size_t size, BufferHost<T> &host, const size_t offset = 0) {
+    Read(queue, size, host.data(), offset);
   }
 
   // Copies from host to device: writing the device buffer a-synchronously
-  void WriteAsync(const Queue &queue, const size_t size, const T* host) {
+  void WriteAsync(const Queue &queue, const size_t size, const T* host, const size_t offset = 0) {
     if (access_ == BufferAccess::kReadOnly) { Error("writing to a read-only buffer"); }
-    if (GetSize() < size*sizeof(T)) { Error("target device buffer is too small"); }
-    CheckError(clEnqueueWriteBuffer(queue(), *buffer_, CL_FALSE, 0, size*sizeof(T), host, 0,
-                                    nullptr, nullptr));
+    if (GetSize() < (offset+size)*sizeof(T)) { Error("target device buffer is too small"); }
+    CheckError(clEnqueueWriteBuffer(queue(), *buffer_, CL_FALSE, offset*sizeof(T), size*sizeof(T),
+                                    host, 0, nullptr, nullptr));
   }
-  void WriteAsync(const Queue &queue, const size_t size, const std::vector<T> &host) {
-    WriteAsync(queue, size, host.data());
+  void WriteAsync(const Queue &queue, const size_t size, const std::vector<T> &host,
+                  const size_t offset = 0) {
+    WriteAsync(queue, size, host.data(), offset);
   }
-  void WriteAsync(const Queue &queue, const size_t size, const BufferHost<T> &host) {
-    WriteAsync(queue, size, host.data());
+  void WriteAsync(const Queue &queue, const size_t size, const BufferHost<T> &host,
+                  const size_t offset = 0) {
+    WriteAsync(queue, size, host.data(), offset);
   }
 
   // Copies from host to device: writing the device buffer
-  void Write(const Queue &queue, const size_t size, const T* host) {
-    WriteAsync(queue, size, host);
+  void Write(const Queue &queue, const size_t size, const T* host, const size_t offset = 0) {
+    WriteAsync(queue, size, host, offset);
     queue.Finish();
   }
-  void Write(const Queue &queue, const size_t size, const std::vector<T> &host) {
-    Write(queue, size, host.data());
+  void Write(const Queue &queue, const size_t size, const std::vector<T> &host,
+             const size_t offset = 0) {
+    Write(queue, size, host.data(), offset);
   }
-  void Write(const Queue &queue, const size_t size, const BufferHost<T> &host) {
-    Write(queue, size, host.data());
+  void Write(const Queue &queue, const size_t size, const BufferHost<T> &host,
+             const size_t offset = 0) {
+    Write(queue, size, host.data(), offset);
   }
 
   // Copies the contents of this buffer into another device buffer
