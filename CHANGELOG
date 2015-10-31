@@ -1,7 +1,7 @@
 
 Development version:
 - Made 'CopyTo' and 'CopyToAsync' constant methods
-- Added unit tests for Device and Context classes
+- Added unit tests for {Event, Device, Context, Queue} classes
 - Added compact OpenCL example
 - Fixed several compiler warnings
 - Added new methods to the API:
