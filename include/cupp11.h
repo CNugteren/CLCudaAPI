@@ -125,7 +125,7 @@ class Platform {
   size_t NumDevices() const {
     auto result = 0;
     CheckError(cuDeviceGetCount(&result));
-    return result;
+    return static_cast<size_t>(result);
   }
 
  private:
@@ -403,8 +403,8 @@ class Buffer {
   // Constructs a new buffer based on an existing host-container
   template <typename Iterator>
   explicit Buffer(const Context &context, const Queue &queue, Iterator start, Iterator end):
-    Buffer(context, BufferAccess::kReadWrite, end - start) {
-    auto size = end - start;
+    Buffer(context, BufferAccess::kReadWrite, static_cast<size_t>(end - start)) {
+    auto size = static_cast<size_t>(end - start);
     auto pointer = &*start;
     CheckError(cuMemcpyHtoDAsync(*buffer_, pointer, size*sizeof(T), queue()));
     queue.Finish();

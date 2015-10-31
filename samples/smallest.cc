@@ -31,7 +31,7 @@
 // Compile using OpenCL ...
 #if USE_OPENCL
   #include <clpp11.h>
-  auto program_string = R"(
+  static auto program_string = R"(
   __kernel void add(__global const float* a, __global const float* b, __global float* c) {
     unsigned idx = get_global_id(0);
     c[idx] = a[idx] + b[idx];
@@ -40,7 +40,7 @@
 // ... or use CUDA instead
 #else
   #include <cupp11.h>
-  auto program_string = R"(
+  static auto program_string = R"(
   extern "C" __global__ void add(const float* a, const float* b, float* c) {
     unsigned idx = threadIdx.x + blockDim.x*blockIdx.x;
     c[idx] = a[idx] + b[idx];

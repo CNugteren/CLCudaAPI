@@ -122,7 +122,7 @@ class Platform {
   size_t NumDevices() const {
     auto result = cl_uint{0};
     CheckError(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_ALL, 0, nullptr, &result));
-    return result;
+    return static_cast<size_t>(result);
   }
 
   // Accessor to the private data-member
@@ -145,7 +145,8 @@ class Device {
     auto num_devices = platform.NumDevices();
     if (num_devices == 0) { Error("no devices found"); }
     auto devices = std::vector<cl_device_id>(num_devices);
-    CheckError(clGetDeviceIDs(platform(), CL_DEVICE_TYPE_ALL, num_devices, devices.data(), nullptr));
+    CheckError(clGetDeviceIDs(platform(), CL_DEVICE_TYPE_ALL, static_cast<cl_uint>(num_devices),
+                              devices.data(), nullptr));
     if (device_id >= num_devices) { Error("invalid device ID "+std::to_string(device_id)); }
     device_ = devices[device_id];
   }
@@ -447,8 +448,8 @@ class Buffer {
   // Constructs a new buffer based on an existing host-container
   template <typename Iterator>
   explicit Buffer(const Context &context, const Queue &queue, Iterator start, Iterator end):
-    Buffer(context, BufferAccess::kReadWrite, end - start) {
-    auto size = end - start;
+    Buffer(context, BufferAccess::kReadWrite, static_cast<size_t>(end - start)) {
+    auto size = static_cast<size_t>(end - start);
     auto pointer = &*start;
     CheckError(clEnqueueWriteBuffer(queue(), *buffer_, CL_FALSE, 0, size*sizeof(T), pointer, 0,
                                     nullptr, nullptr));
