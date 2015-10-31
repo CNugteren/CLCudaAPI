@@ -182,6 +182,7 @@ class Device {
     CheckError(cuDeviceTotalMem(&result, device_));
     return result;
   }
+  size_t MaxAllocSize() const { return MemorySize(); }
   size_t MemoryClock() const { return 1e-3*GetInfo(CU_DEVICE_ATTRIBUTE_MEMORY_CLOCK_RATE); }
   size_t MemoryBusWidth() const { return GetInfo(CU_DEVICE_ATTRIBUTE_GLOBAL_MEMORY_BUS_WIDTH); }
 

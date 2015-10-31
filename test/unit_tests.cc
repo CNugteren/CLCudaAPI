@@ -88,6 +88,7 @@ SCENARIO("devices can be created and used", "[Device][Platform]") {
       auto device_core_clock = device.CoreClock();
       auto device_compute_units = device.ComputeUnits();
       auto device_memory_size = device.MemorySize();
+      auto device_max_alloc_size = device.MaxAllocSize();
       auto device_memory_clock = device.MemoryClock();
       auto device_memory_bus_width = device.MemoryBusWidth();
 

@@ -68,7 +68,10 @@ Retrieves the device's core clock frequency in MHz.
 Retrieves the number of compute units (OpenCL terminology) or multi-processors (CUDA terminology) in the device.
 
 * `size_t MemorySize() const`:
-Retrieves the global memory size (CUDA back-end) or the maximum amount of allocatable global memory per allocation (OpenCL back-end).
+Retrieves the total global memory size.
+
+* `size_t MaxAllocSize() const`:
+Retrieves the maximum amount of allocatable global memory per allocation.
 
 * `size_t MemoryClock() const`:
 Retrieves the device's memory clock frequency in MHz (CUDA back-end) or 0 (OpenCL back-end).

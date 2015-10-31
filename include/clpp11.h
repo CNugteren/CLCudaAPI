@@ -178,6 +178,7 @@ class Device {
   size_t CoreClock() const { return GetInfo(CL_DEVICE_MAX_CLOCK_FREQUENCY); }
   size_t ComputeUnits() const { return GetInfo(CL_DEVICE_MAX_COMPUTE_UNITS); }
   size_t MemorySize() const { return GetInfo(CL_DEVICE_GLOBAL_MEM_SIZE); }
+  size_t MaxAllocSize() const { return GetInfo(CL_DEVICE_MAX_MEM_ALLOC_SIZE); }
   size_t MemoryClock() const { return 0; } // Not exposed in OpenCL
   size_t MemoryBusWidth() const { return 0; } // Not exposed in OpenCL
 

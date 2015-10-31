@@ -73,7 +73,8 @@ int main() {
   printf(" > Device capabilities          %s\n", device.Capabilities().c_str());
   printf(" > Core clock rate              %lu MHz\n", device.CoreClock());
   printf(" > Number of compute units      %lu\n", device.ComputeUnits());
-  printf(" > Allocatable memory size      %lu bytes\n", device.MemorySize());
+  printf(" > Total memory size            %lu bytes\n", device.MemorySize());
+  printf(" > Maximum allocatable memory   %lu bytes\n", device.MaxAllocSize());
   printf(" > Memory clock rate            %lu MHz\n", device.MemoryClock());
   printf(" > Memory bus width             %lu bits\n", device.MemoryBusWidth());
 
