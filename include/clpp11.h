@@ -75,7 +75,7 @@ class Event {
   explicit Event(const cl_event event): event_(event) { }
 
   // Regular constructor
-  explicit Event() { }
+  explicit Event(): event_(nullptr) { }
 
   // Retrieves the elapsed time of the last recorded event. Note that no error checking is done on
   // the 'clGetEventProfilingInfo' function, since there is a bug in Apple's OpenCL implementation:

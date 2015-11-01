@@ -47,6 +47,12 @@ const size_t kBufferSize = 10;
 
 SCENARIO("events can be created and used", "[Event]") {
   GIVEN("An example event") {
+    #if !USE_OPENCL
+    auto platform = CLCudaAPI::Platform(kPlatformID);
+    auto device = CLCudaAPI::Device(platform, kDeviceID);
+    auto context = CLCudaAPI::Context(device);
+    auto queue = CLCudaAPI::Queue(context, device);
+    #endif
     auto event = CLCudaAPI::Event();
 
     #if USE_OPENCL // Not available for the CUDA version
@@ -54,24 +60,29 @@ SCENARIO("events can be created and used", "[Event]") {
       auto raw_event = event();
       THEN("a copy of this event can be created") {
         auto event_copy = CLCudaAPI::Event(raw_event);
-        REQUIRE(event_copy() != nullptr);
+        REQUIRE(event_copy() == event());
       }
     }
     #else // Not available for the OpenCL version
     WHEN("its underlying data-structures are retrieved") {
       auto raw_start = event.start();
-      auto raw_end = event.raw();
+      auto raw_end = event.end();
       THEN("their underlying data-structures are not null") {
-        REQUIRE(raw_start() != nullptr);
-        REQUIRE(raw_end() != nullptr);
+        REQUIRE(raw_start != nullptr);
+        REQUIRE(raw_end != nullptr);
       }
     }
     #endif
 
     WHEN("a copy is created using the copy constructor") {
       auto event_copy = CLCudaAPI::Event(event);
-      THEN("its underlying data-structure is not null") {
-        REQUIRE(event_copy() != nullptr);
+      THEN("its underlying data-structure is unchanged") {
+        #if USE_OPENCL
+          REQUIRE(event_copy() == event());
+        #else
+          REQUIRE(event_copy.start() == event.start());
+          REQUIRE(event_copy.end() == event.end());
+        #endif
       }
     }
 
@@ -84,6 +95,7 @@ SCENARIO("events can be created and used", "[Event]") {
     //}
   }
 }
+
 // =================================================================================================
 
 SCENARIO("platforms can be created and used", "[Platform]") {
