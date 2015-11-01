@@ -12,7 +12,7 @@
 // Portability here means that a similar header exists for CUDA with the same classes and
 // interfaces. In other words, moving from the OpenCL API to the CUDA API becomes a one-line change.
 //
-// This is version 3.0 of CLCudaAPI.
+// This is version 4.0 of CLCudaAPI.
 //
 // =================================================================================================
 //
@@ -75,7 +75,7 @@ class Event {
   explicit Event(const cl_event event): event_(event) { }
 
   // Regular constructor
-  explicit Event() { }
+  explicit Event(): event_(nullptr) { }
 
   // Retrieves the elapsed time of the last recorded event. Note that no error checking is done on
   // the 'clGetEventProfilingInfo' function, since there is a bug in Apple's OpenCL implementation:
@@ -122,7 +122,7 @@ class Platform {
   size_t NumDevices() const {
     auto result = cl_uint{0};
     CheckError(clGetDeviceIDs(platform_, CL_DEVICE_TYPE_ALL, 0, nullptr, &result));
-    return result;
+    return static_cast<size_t>(result);
   }
 
   // Accessor to the private data-member
@@ -145,7 +145,8 @@ class Device {
     auto num_devices = platform.NumDevices();
     if (num_devices == 0) { Error("no devices found"); }
     auto devices = std::vector<cl_device_id>(num_devices);
-    CheckError(clGetDeviceIDs(platform(), CL_DEVICE_TYPE_ALL, num_devices, devices.data(), nullptr));
+    CheckError(clGetDeviceIDs(platform(), CL_DEVICE_TYPE_ALL, static_cast<cl_uint>(num_devices),
+                              devices.data(), nullptr));
     if (device_id >= num_devices) { Error("invalid device ID "+std::to_string(device_id)); }
     device_ = devices[device_id];
   }
@@ -177,6 +178,7 @@ class Device {
   size_t CoreClock() const { return GetInfo(CL_DEVICE_MAX_CLOCK_FREQUENCY); }
   size_t ComputeUnits() const { return GetInfo(CL_DEVICE_MAX_COMPUTE_UNITS); }
   size_t MemorySize() const { return GetInfo(CL_DEVICE_GLOBAL_MEM_SIZE); }
+  size_t MaxAllocSize() const { return GetInfo(CL_DEVICE_MAX_MEM_ALLOC_SIZE); }
   size_t MemoryClock() const { return 0; } // Not exposed in OpenCL
   size_t MemoryBusWidth() const { return 0; } // Not exposed in OpenCL
 
@@ -347,7 +349,12 @@ class Queue {
       queue_(new cl_command_queue, [](cl_command_queue* s) { CheckError(clReleaseCommandQueue(*s));
                                                              delete s; }) {
     auto status = CL_SUCCESS;
-    *queue_ = clCreateCommandQueue(context(), device(), CL_QUEUE_PROFILING_ENABLE, &status);
+    #ifdef CL_VERSION_2_0
+      cl_queue_properties properties[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0};
+      *queue_ = clCreateCommandQueueWithProperties(context(), device(), properties, &status);
+    #else
+      *queue_ = clCreateCommandQueue(context(), device(), CL_QUEUE_PROFILING_ENABLE, &status);
+    #endif
     CheckError(status);
   }
 
@@ -447,8 +454,8 @@ class Buffer {
   // Constructs a new buffer based on an existing host-container
   template <typename Iterator>
   explicit Buffer(const Context &context, const Queue &queue, Iterator start, Iterator end):
-    Buffer(context, BufferAccess::kReadWrite, end - start) {
-    auto size = end - start;
+    Buffer(context, BufferAccess::kReadWrite, static_cast<size_t>(end - start)) {
+    auto size = static_cast<size_t>(end - start);
     auto pointer = &*start;
     CheckError(clEnqueueWriteBuffer(queue(), *buffer_, CL_FALSE, 0, size*sizeof(T), pointer, 0,
                                     nullptr, nullptr));
@@ -456,64 +463,70 @@ class Buffer {
   }
 
   // Copies from device to host: reading the device buffer a-synchronously
-  void ReadAsync(const Queue &queue, const size_t size, T* host) {
+  void ReadAsync(const Queue &queue, const size_t size, T* host, const size_t offset = 0) {
     if (access_ == BufferAccess::kWriteOnly) { Error("reading from a write-only buffer"); }
-    CheckError(clEnqueueReadBuffer(queue(), *buffer_, CL_FALSE, 0, size*sizeof(T), host, 0,
-                                   nullptr, nullptr));
+    CheckError(clEnqueueReadBuffer(queue(), *buffer_, CL_FALSE, offset*sizeof(T), size*sizeof(T),
+                                   host, 0, nullptr, nullptr));
   }
-  void ReadAsync(const Queue &queue, const size_t size, std::vector<T> &host) {
+  void ReadAsync(const Queue &queue, const size_t size, std::vector<T> &host,
+                 const size_t offset = 0) {
     if (host.size() < size) { Error("target host buffer is too small"); }
-    ReadAsync(queue, size, host.data());
+    ReadAsync(queue, size, host.data(), offset);
   }
-  void ReadAsync(const Queue &queue, const size_t size, BufferHost<T> &host) {
+  void ReadAsync(const Queue &queue, const size_t size, BufferHost<T> &host,
+                 const size_t offset = 0) {
     if (host.size() < size) { Error("target host buffer is too small"); }
-    ReadAsync(queue, size, host.data());
+    ReadAsync(queue, size, host.data(), offset);
   }
 
   // Copies from device to host: reading the device buffer
-  void Read(const Queue &queue, const size_t size, T* host) {
-    ReadAsync(queue, size, host);
+  void Read(const Queue &queue, const size_t size, T* host, const size_t offset = 0) {
+    ReadAsync(queue, size, host, offset);
     queue.Finish();
   }
-  void Read(const Queue &queue, const size_t size, std::vector<T> &host) {
-    Read(queue, size, host.data());
+  void Read(const Queue &queue, const size_t size, std::vector<T> &host, const size_t offset = 0) {
+    Read(queue, size, host.data(), offset);
   }
-  void Read(const Queue &queue, const size_t size, BufferHost<T> &host) {
-    Read(queue, size, host.data());
+  void Read(const Queue &queue, const size_t size, BufferHost<T> &host, const size_t offset = 0) {
+    Read(queue, size, host.data(), offset);
   }
 
   // Copies from host to device: writing the device buffer a-synchronously
-  void WriteAsync(const Queue &queue, const size_t size, const T* host) {
+  void WriteAsync(const Queue &queue, const size_t size, const T* host, const size_t offset = 0) {
     if (access_ == BufferAccess::kReadOnly) { Error("writing to a read-only buffer"); }
-    if (GetSize() < size*sizeof(T)) { Error("target device buffer is too small"); }
-    CheckError(clEnqueueWriteBuffer(queue(), *buffer_, CL_FALSE, 0, size*sizeof(T), host, 0,
-                                    nullptr, nullptr));
+    if (GetSize() < (offset+size)*sizeof(T)) { Error("target device buffer is too small"); }
+    CheckError(clEnqueueWriteBuffer(queue(), *buffer_, CL_FALSE, offset*sizeof(T), size*sizeof(T),
+                                    host, 0, nullptr, nullptr));
   }
-  void WriteAsync(const Queue &queue, const size_t size, const std::vector<T> &host) {
-    WriteAsync(queue, size, host.data());
+  void WriteAsync(const Queue &queue, const size_t size, const std::vector<T> &host,
+                  const size_t offset = 0) {
+    WriteAsync(queue, size, host.data(), offset);
   }
-  void WriteAsync(const Queue &queue, const size_t size, const BufferHost<T> &host) {
-    WriteAsync(queue, size, host.data());
+  void WriteAsync(const Queue &queue, const size_t size, const BufferHost<T> &host,
+                  const size_t offset = 0) {
+    WriteAsync(queue, size, host.data(), offset);
   }
 
   // Copies from host to device: writing the device buffer
-  void Write(const Queue &queue, const size_t size, const T* host) {
-    WriteAsync(queue, size, host);
+  void Write(const Queue &queue, const size_t size, const T* host, const size_t offset = 0) {
+    WriteAsync(queue, size, host, offset);
     queue.Finish();
   }
-  void Write(const Queue &queue, const size_t size, const std::vector<T> &host) {
-    Write(queue, size, host.data());
+  void Write(const Queue &queue, const size_t size, const std::vector<T> &host,
+             const size_t offset = 0) {
+    Write(queue, size, host.data(), offset);
   }
-  void Write(const Queue &queue, const size_t size, const BufferHost<T> &host) {
-    Write(queue, size, host.data());
+  void Write(const Queue &queue, const size_t size, const BufferHost<T> &host,
+             const size_t offset = 0) {
+    Write(queue, size, host.data(), offset);
   }
 
   // Copies the contents of this buffer into another device buffer
-  void CopyToAsync(const Queue &queue, const size_t size, const Buffer<T> &destination) {
+  void CopyToAsync(const Queue &queue, const size_t size, const Buffer<T> &destination) const {
     CheckError(clEnqueueCopyBuffer(queue(), *buffer_, destination(), 0, 0, size*sizeof(T), 0,
                                    nullptr, nullptr));
   }
-  void CopyTo(const Queue &queue, const size_t size, const Buffer<T> &destination) {
+  void CopyTo(const Queue &queue, const size_t size, const Buffer<T> &destination) const {
     CopyToAsync(queue, size, destination);
     queue.Finish();
   }

@@ -30,9 +30,9 @@
 
 // Run with either OpenCL or CUDA as a back-end
 #if USE_OPENCL
-  #include <clpp11.h>
+  #include "clpp11.h"
 #else
-  #include <cupp11.h>
+  #include "cupp11.h"
 #endif
 
 // C++ includes
@@ -46,8 +46,8 @@
 int main() {
 
   // Platform/device settings
-  constexpr auto platform_id = 0;
-  constexpr auto device_id = 0;
+  constexpr auto platform_id = size_t{0};
+  constexpr auto device_id = size_t{0};
 
   // Initializes the CLCudaAPI platform and device. This initializes the OpenCL/CUDA back-end and
   // selects a specific device on the platform.
@@ -57,25 +57,26 @@ int main() {
   // Prints information about the chosen device. Most of these results should stay the same when
   // switching between the CUDA and OpenCL back-ends.
   printf("\n## Printing device information...\n");
-  printf(" > Platform ID                  %d\n", platform_id);
-  printf(" > Device ID                    %d\n", device_id);
+  printf(" > Platform ID                  %zu\n", platform_id);
+  printf(" > Device ID                    %zu\n", device_id);
   printf(" > Framework version            %s\n", device.Version().c_str());
   printf(" > Vendor                       %s\n", device.Vendor().c_str());
   printf(" > Device name                  %s\n", device.Name().c_str());
   printf(" > Device type                  %s\n", device.Type().c_str());
-  printf(" > Max work-group size          %lu\n", device.MaxWorkGroupSize());
-  printf(" > Max thread dimensions        %lu\n", device.MaxWorkItemDimensions());
+  printf(" > Max work-group size          %zu\n", device.MaxWorkGroupSize());
+  printf(" > Max thread dimensions        %zu\n", device.MaxWorkItemDimensions());
   printf(" > Max work-group sizes:\n");
   for (auto i=size_t{0}; i<device.MaxWorkItemDimensions(); ++i) {
-    printf("   - in the %lu-dimension         %lu\n", i, device.MaxWorkItemSizes()[i]);
+    printf("   - in the %zu-dimension         %zu\n", i, device.MaxWorkItemSizes()[i]);
   }
-  printf(" > Local memory per work-group  %lu bytes\n", device.LocalMemSize());
+  printf(" > Local memory per work-group  %zu bytes\n", device.LocalMemSize());
   printf(" > Device capabilities          %s\n", device.Capabilities().c_str());
-  printf(" > Core clock rate              %lu MHz\n", device.CoreClock());
-  printf(" > Number of compute units      %lu\n", device.ComputeUnits());
-  printf(" > Allocatable memory size      %lu bytes\n", device.MemorySize());
-  printf(" > Memory clock rate            %lu MHz\n", device.MemoryClock());
-  printf(" > Memory bus width             %lu bits\n", device.MemoryBusWidth());
+  printf(" > Core clock rate              %zu MHz\n", device.CoreClock());
+  printf(" > Number of compute units      %zu\n", device.ComputeUnits());
+  printf(" > Total memory size            %zu bytes\n", device.MemorySize());
+  printf(" > Maximum allocatable memory   %zu bytes\n", device.MaxAllocSize());
+  printf(" > Memory clock rate            %zu MHz\n", device.MemoryClock());
+  printf(" > Memory bus width             %zu bits\n", device.MemoryBusWidth());
 
   // End of the example: no frees or clean-up needed
   return 0;

@@ -31,9 +31,9 @@
 
 // Runs with either OpenCL or CUDA as a back-end
 #if USE_OPENCL
-  #include <clpp11.h>
+  #include "clpp11.h"
 #else
-  #include <cupp11.h>
+  #include "cupp11.h"
 #endif
 
 // C++ includes
@@ -66,12 +66,12 @@ int main() {
   // ===============================================================================================
 
   // Sets the size of the vectors and the data-multiplication factor
-  constexpr size_t size = 2048 * 2048;
+  constexpr auto size = static_cast<size_t>(2048 * 2048);
   auto multiply_factor = 2;
 
   // Platform/device settings
-  constexpr auto platform_id = 0;
-  constexpr auto device_id = 0;
+  constexpr auto platform_id = size_t{0};
+  constexpr auto device_id = size_t{0};
 
   // Initializes the CLCudaAPI platform and device. This initializes the OpenCL/CUDA back-end and
   // selects a specific device on the platform. The device class has methods to retrieve properties
@@ -121,7 +121,7 @@ int main() {
 
   // Creates a 1-dimensional thread configuration with thread-blocks/work-groups of 256 threads
   // and a total number of threads equal to the number of elements in the input/output vectors.
-  constexpr auto kWorkGroupSize = 256;
+  constexpr auto kWorkGroupSize = size_t{256};
   auto global = std::vector<size_t>{size};
   auto local = std::vector<size_t>{kWorkGroupSize};
 

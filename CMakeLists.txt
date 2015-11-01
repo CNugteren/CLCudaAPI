@@ -31,7 +31,7 @@
 # CMake project details
 cmake_minimum_required(VERSION 2.8.10)
 project("CLCudaAPI" CXX)
-set(CLCudaAPI_VERSION_MAJOR 3)
+set(CLCudaAPI_VERSION_MAJOR 4)
 set(CLCudaAPI_VERSION_MINOR 0)
 
 # ==================================================================================================
@@ -74,7 +74,11 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 endif()
 
 # C++ compiler settings
-set(FLAGS "-O3 -std=c++11 -Wall -Wno-comment")
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  set(FLAGS "/Ox")
+else ()
+  set(FLAGS "-O3 -std=c++11 -Wall -Wno-comment")
+endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLAGS}")
 
 # ==================================================================================================
@@ -109,7 +113,7 @@ endif()
 # ==================================================================================================
 
 # Adds the sample programs
-set(SAMPLE_PROGRAMS device_info simple advanced)
+set(SAMPLE_PROGRAMS device_info simple advanced smallest)
 foreach(SAMPLE ${SAMPLE_PROGRAMS})
   add_executable(${SAMPLE} samples/${SAMPLE}.cc)
   if(USE_OPENCL)

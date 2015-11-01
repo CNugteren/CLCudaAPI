@@ -12,7 +12,7 @@
 // Portability here means that a similar header exists for OpenCL with the same classes and
 // interfaces. In other words, moving from the CUDA API to the OpenCL API becomes a one-line change.
 //
-// This is version 3.0 of CLCudaAPI.
+// This is version 4.0 of CLCudaAPI.
 //
 // =================================================================================================
 //
@@ -125,7 +125,7 @@ class Platform {
   size_t NumDevices() const {
     auto result = 0;
     CheckError(cuDeviceGetCount(&result));
-    return result;
+    return static_cast<size_t>(result);
   }
 
  private:
@@ -182,6 +182,7 @@ class Device {
     CheckError(cuDeviceTotalMem(&result, device_));
     return result;
   }
+  size_t MaxAllocSize() const { return MemorySize(); }
   size_t MemoryClock() const { return 1e-3*GetInfo(CU_DEVICE_ATTRIBUTE_MEMORY_CLOCK_RATE); }
   size_t MemoryBusWidth() const { return GetInfo(CU_DEVICE_ATTRIBUTE_GLOBAL_MEMORY_BUS_WIDTH); }
 
@@ -403,69 +404,75 @@ class Buffer {
   // Constructs a new buffer based on an existing host-container
   template <typename Iterator>
   explicit Buffer(const Context &context, const Queue &queue, Iterator start, Iterator end):
-    Buffer(context, BufferAccess::kReadWrite, end - start) {
-    auto size = end - start;
+    Buffer(context, BufferAccess::kReadWrite, static_cast<size_t>(end - start)) {
+    auto size = static_cast<size_t>(end - start);
     auto pointer = &*start;
     CheckError(cuMemcpyHtoDAsync(*buffer_, pointer, size*sizeof(T), queue()));
     queue.Finish();
   }
 
   // Copies from device to host: reading the device buffer a-synchronously
-  void ReadAsync(const Queue &queue, const size_t size, T* host) {
+  void ReadAsync(const Queue &queue, const size_t size, T* host, const size_t offset = 0) {
     if (access_ == BufferAccess::kWriteOnly) { Error("reading from a write-only buffer"); }
-    CheckError(cuMemcpyDtoHAsync(host, *buffer_, size*sizeof(T), queue()));
+    CheckError(cuMemcpyDtoHAsync(host, *buffer_ + offset*sizeof(T), size*sizeof(T), queue()));
   }
-  void ReadAsync(const Queue &queue, const size_t size, std::vector<T> &host) {
+  void ReadAsync(const Queue &queue, const size_t size, std::vector<T> &host,
+                 const size_t offset = 0) {
     if (host.size() < size) { Error("target host buffer is too small"); }
-    ReadAsync(queue, size, host.data());
+    ReadAsync(queue, size, host.data(), offset);
   }
-  void ReadAsync(const Queue &queue, const size_t size, BufferHost<T> &host) {
+  void ReadAsync(const Queue &queue, const size_t size, BufferHost<T> &host,
+                 const size_t offset = 0) {
     if (host.size() < size) { Error("target host buffer is too small"); }
-    ReadAsync(queue, size, host.data());
+    ReadAsync(queue, size, host.data(), offset);
   }
 
   // Copies from device to host: reading the device buffer
-  void Read(const Queue &queue, const size_t size, T* host) {
-    ReadAsync(queue, size, host);
+  void Read(const Queue &queue, const size_t size, T* host, const size_t offset = 0) {
+    ReadAsync(queue, size, host, offset);
     queue.Finish();
   }
-  void Read(const Queue &queue, const size_t size, std::vector<T> &host) {
-    Read(queue, size, host.data());
+  void Read(const Queue &queue, const size_t size, std::vector<T> &host, const size_t offset = 0) {
+    Read(queue, size, host.data(), offset);
   }
-  void Read(const Queue &queue, const size_t size, BufferHost<T> &host) {
-    Read(queue, size, host.data());
+  void Read(const Queue &queue, const size_t size, BufferHost<T> &host, const size_t offset = 0) {
+    Read(queue, size, host.data(), offset);
   }
 
   // Copies from host to device: writing the device buffer a-synchronously
-  void WriteAsync(const Queue &queue, const size_t size, const T* host) {
+  void WriteAsync(const Queue &queue, const size_t size, const T* host, const size_t offset = 0) {
     if (access_ == BufferAccess::kReadOnly) { Error("writing to a read-only buffer"); }
-    if (GetSize() < size*sizeof(T)) { Error("target device buffer is too small"); }
-    CheckError(cuMemcpyHtoDAsync(*buffer_, host, size*sizeof(T), queue()));
+    if (GetSize() < (offset+size)*sizeof(T)) { Error("target device buffer is too small"); }
+    CheckError(cuMemcpyHtoDAsync(*buffer_ + offset*sizeof(T), host, size*sizeof(T), queue()));
   }
-  void WriteAsync(const Queue &queue, const size_t size, const std::vector<T> &host) {
-    WriteAsync(queue, size, host.data());
+  void WriteAsync(const Queue &queue, const size_t size, const std::vector<T> &host,
+                  const size_t offset = 0) {
+    WriteAsync(queue, size, host.data(), offset);
   }
-  void WriteAsync(const Queue &queue, const size_t size, const BufferHost<T> &host) {
-    WriteAsync(queue, size, host.data());
+  void WriteAsync(const Queue &queue, const size_t size, const BufferHost<T> &host,
+                  const size_t offset = 0) {
+    WriteAsync(queue, size, host.data(), offset);
   }
 
   // Copies from host to device: writing the device buffer 
-  void Write(const Queue &queue, const size_t size, const T* host) {
-    WriteAsync(queue, size, host);
+  void Write(const Queue &queue, const size_t size, const T* host, const size_t offset = 0) {
+    WriteAsync(queue, size, host, offset);
     queue.Finish();
   }
-  void Write(const Queue &queue, const size_t size, const std::vector<T> &host) {
-    Write(queue, size, host.data());
+  void Write(const Queue &queue, const size_t size, const std::vector<T> &host,
+             const size_t offset = 0) {
+    Write(queue, size, host.data(), offset);
   }
-  void Write(const Queue &queue, const size_t size, const BufferHost<T> &host) {
-    Write(queue, size, host.data());
+  void Write(const Queue &queue, const size_t size, const BufferHost<T> &host,
+             const size_t offset = 0) {
+    Write(queue, size, host.data(), offset);
   }
 
   // Copies the contents of this buffer into another device buffer
-  void CopyToAsync(const Queue &queue, const size_t size, const Buffer<T> &destination) {
+  void CopyToAsync(const Queue &queue, const size_t size, const Buffer<T> &destination) const {
     CheckError(cuMemcpyDtoDAsync(destination(), *buffer_, size*sizeof(T), queue()));
   }
-  void CopyTo(const Queue &queue, const size_t size, const Buffer<T> &destination) {
+  void CopyTo(const Queue &queue, const size_t size, const Buffer<T> &destination) const {
     CopyToAsync(queue, size, destination);
     queue.Finish();
   }

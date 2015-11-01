@@ -13,9 +13,9 @@ What does it look like?
 To get started, include either of the two headers:
 
 ```c++
-#include <clpp11.h>
+#include "clpp11.h"
 // or:
-#include <cupp11.h>
+#include "cupp11.h"
 ```
 
 Here is a simple example of setting-up platform 0 and selecting device 2:
@@ -67,9 +67,9 @@ What are the pre-requisites?
 
 The requirements to use the CLCudaAPI headers are:
 
-* CUDA 7.0 or higher (for run-time compilation)
+* CUDA 7.0 or higher
 * OpenCL 1.1 or higher
-* A C++11 compiler (e.g. GCC 4.7 or newer)
+* A C++11 compiler (e.g. GCC 4.7, Clang 3.3, MSVC 2015 or newer)
 
 If you also want to compile the samples and tests using the provided infrastructure, you'll also need:
 
