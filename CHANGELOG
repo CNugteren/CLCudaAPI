@@ -4,7 +4,8 @@ Development version:
 - Added offset support to the Buffer class (credits go to 'ielhelw')
 - Added unit tests for {Event, Device, Context, Queue} classes
 - Added compact OpenCL example
-- Fixed several compiler warnings
+- Fixed compiler warnings and errors for Windows using MSVC
+- Fixed several general compiler warnings
 - Added new methods to the API:
   * Device::MaxAllocSize
 

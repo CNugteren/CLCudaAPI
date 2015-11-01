@@ -30,7 +30,7 @@
 
 // Compile using OpenCL ...
 #if USE_OPENCL
-  #include <clpp11.h>
+  #include "clpp11.h"
   static auto program_string = R"(
   __kernel void add(__global const float* a, __global const float* b, __global float* c) {
     unsigned idx = get_global_id(0);
@@ -39,7 +39,7 @@
 
 // ... or use CUDA instead
 #else
-  #include <cupp11.h>
+  #include "cupp11.h"
   static auto program_string = R"(
   extern "C" __global__ void add(const float* a, const float* b, float* c) {
     unsigned idx = threadIdx.x + blockDim.x*blockIdx.x;
@@ -50,8 +50,8 @@
 #include <cstdio>
 
 int main() {
-  constexpr size_t platform_id = 0;
-  constexpr size_t device_id = 1;
+  constexpr auto platform_id = size_t{0};
+  constexpr auto device_id = size_t{1};
   auto platform = CLCudaAPI::Platform(platform_id);
   auto device = CLCudaAPI::Device(platform, device_id);
   auto context = CLCudaAPI::Context(device);
@@ -59,7 +59,7 @@ int main() {
   auto event = CLCudaAPI::Event();
 
   // Creates and populates device memory
-  constexpr size_t elements = 1024;
+  constexpr auto elements = size_t{1024};
   auto data = std::vector<float>(elements, 5);
   auto a = CLCudaAPI::Buffer<float>(context, CLCudaAPI::BufferAccess::kReadWrite, elements);
   auto b = CLCudaAPI::Buffer<float>(context, CLCudaAPI::BufferAccess::kReadWrite, elements);

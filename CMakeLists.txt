@@ -74,7 +74,11 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 endif()
 
 # C++ compiler settings
-set(FLAGS "-O3 -std=c++11 -Wall -Wno-comment")
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  set(FLAGS "/Ox")
+else ()
+  set(FLAGS "-O3 -std=c++11 -Wall -Wno-comment")
+endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLAGS}")
 
 # ==================================================================================================
