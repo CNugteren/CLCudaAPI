@@ -12,7 +12,7 @@
 // Portability here means that a similar header exists for OpenCL with the same classes and
 // interfaces. In other words, moving from the CUDA API to the OpenCL API becomes a one-line change.
 //
-// This is version 3.0 of CLCudaAPI.
+// This is version 4.0 of CLCudaAPI.
 //
 // =================================================================================================
 //

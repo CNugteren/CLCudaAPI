@@ -1,5 +1,5 @@
 
-Development version:
+Version 4.0 (2015-11-01):
 - Made 'CopyTo' and 'CopyToAsync' constant methods
 - Added offset support to the Buffer class (credits go to 'ielhelw')
 - Added unit tests for {Event, Device, Context, Queue} classes
