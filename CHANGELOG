@@ -1,4 +1,7 @@
 
+Development version (next release)
+- Buffers can now also be 'not owned' to disable automatic memory freeing afterwards
+
 Version 4.0 (2015-11-01):
 - Made 'CopyTo' and 'CopyToAsync' constant methods
 - Added offset support to the Buffer class (credits go to 'ielhelw')

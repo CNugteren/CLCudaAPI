@@ -420,7 +420,7 @@ class BufferHost {
 // =================================================================================================
 
 // Enumeration of buffer access types
-enum class BufferAccess { kReadOnly, kWriteOnly, kReadWrite };
+enum class BufferAccess { kReadOnly, kWriteOnly, kReadWrite, kNotOwned };
 
 // C++11 version of 'cl_mem'
 template <typename T>
@@ -430,13 +430,17 @@ class Buffer {
   // Constructor based on the regular OpenCL data-type: memory management is handled elsewhere
   explicit Buffer(const cl_mem buffer):
       buffer_(new cl_mem),
-      access_(BufferAccess::kReadWrite) {
+      access_(BufferAccess::kNotOwned) {
     *buffer_ = buffer;
   }
 
-  // Regular constructor with memory management
+  // Regular constructor with memory management. If this class does not own the buffer object, then
+  // the memory will not be freed automatically afterwards.
   explicit Buffer(const Context &context, const BufferAccess access, const size_t size):
-      buffer_(new cl_mem, [](cl_mem* m) { CheckError(clReleaseMemObject(*m)); delete m; }),
+      buffer_(new cl_mem, [access](cl_mem* m) {
+        if (access != BufferAccess::kNotOwned) { CheckError(clReleaseMemObject(*m)); }
+        delete m;
+      }),
       access_(access) {
     auto flags = cl_mem_flags{CL_MEM_READ_WRITE};
     if (access_ == BufferAccess::kReadOnly) { flags = CL_MEM_READ_ONLY; }

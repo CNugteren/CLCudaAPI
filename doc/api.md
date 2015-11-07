@@ -162,13 +162,13 @@ template \<typename T\> CLCudaAPI::Buffer
 
 Constants(s):
 
-* `enum class BufferAccess { kReadOnly, kWriteOnly, kReadWrite }`
-Defines the different access types for the buffers. Writing to a read-only buffer will throw an error, as will reading from a write-only buffer.
+* `enum class BufferAccess { kReadOnly, kWriteOnly, kReadWrite, kNotOwned }`
+Defines the different access types for the buffers. Writing to a read-only buffer will throw an error, as will reading from a write-only buffer. A buffer which is of type `kNotOwned` will not be automatically freed afterwards.
 
 Constructor(s):
 
 * `Buffer(const Context &context, const BufferAccess access, const size_t size)`:
-Initializes a new linear 1D memory buffer on the device of type T. This buffer is allocated with a fixed number of elements given by `size`. Note that the buffer's elements are not initialized. The buffer can be read-only, write-only, or read-write, as specified by the `access` argument.
+Initializes a new linear 1D memory buffer on the device of type T. This buffer is allocated with a fixed number of elements given by `size`. Note that the buffer's elements are not initialized. The buffer can be read-only, write-only, read-write, or not-owned as specified by the `access` argument.
 
 * `Buffer(const Context &context, const size_t size)`:
 As above, but now defaults to read-write access.

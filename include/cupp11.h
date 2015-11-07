@@ -375,7 +375,7 @@ class BufferHost {
 // =================================================================================================
 
 // Enumeration of buffer access types
-enum class BufferAccess { kReadOnly, kWriteOnly, kReadWrite };
+enum class BufferAccess { kReadOnly, kWriteOnly, kReadWrite, kNotOwned };
 
 // C++11 version of 'CUdeviceptr'
 template <typename T>
@@ -385,13 +385,17 @@ class Buffer {
   // Constructor based on the regular CUDA data-type: memory management is handled elsewhere
   explicit Buffer(const CUdeviceptr buffer):
       buffer_(new CUdeviceptr),
-      access_(BufferAccess::kReadWrite) {
+      access_(BufferAccess::kNotOwned) {
     *buffer_ = buffer;
   }
 
-  // Regular constructor with memory management
+  // Regular constructor with memory management. If this class does not own the buffer object, then
+  // the memory will not be freed automatically afterwards.
   explicit Buffer(const Context &, const BufferAccess access, const size_t size):
-      buffer_(new CUdeviceptr, [](CUdeviceptr* m) { CheckError(cuMemFree(*m)); delete m; }),
+      buffer_(new CUdeviceptr, [access](CUdeviceptr* m) {
+        if (access != BufferAccess::kNotOwned) { CheckError(cuMemFree(*m)); }
+        delete m;
+      }),
       access_(access) {
     CheckError(cuMemAlloc(buffer_.get(), size*sizeof(T)));
   }
