@@ -489,7 +489,7 @@ class Buffer {
   }
 
   // Accessors to the private data-members
-  const CUdeviceptr operator()() const { return *buffer_; }
+  CUdeviceptr operator()() const { return *buffer_; }
   CUdeviceptr& operator()() { return *buffer_; }
  private:
   std::shared_ptr<CUdeviceptr> buffer_;
@@ -540,7 +540,7 @@ class Kernel {
 
   // Retrieves the amount of local memory used per work-group for this kernel. Note that this the
   // shared memory in CUDA terminology.
-  size_t LocalMemUsage(const Device &device) const {
+  size_t LocalMemUsage(const Device &) const {
     auto result = 0;
     CheckError(cuFuncGetAttribute(&result, CU_FUNC_ATTRIBUTE_SHARED_SIZE_BYTES, kernel_));
     return static_cast<size_t>(result);
@@ -572,7 +572,7 @@ class Kernel {
 
   // As above, but with the default local workgroup size
   // TODO: Implement this function
-  void Launch(const Queue &queue, const std::vector<size_t> &global, Event &event) {
+  void Launch(const Queue &, const std::vector<size_t> &, Event &) {
     Error("launching with a default workgroup size is not implemented for the CUDA back-end");
   }
 
