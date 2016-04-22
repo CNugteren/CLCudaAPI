@@ -12,7 +12,7 @@
 // Portability here means that a similar header exists for OpenCL with the same classes and
 // interfaces. In other words, moving from the CUDA API to the OpenCL API becomes a one-line change.
 //
-// This is version 4.0 of CLCudaAPI.
+// This is version 5.0 of CLCudaAPI.
 //
 // =================================================================================================
 //
@@ -94,6 +94,9 @@ class Event {
     CheckError(cuEventCreate(end_.get(), CU_EVENT_DEFAULT));
   }
 
+  // Waits for completion of this event (not implemented for CUDA)
+  void WaitForCompletion() const { }
+
   // Retrieves the elapsed time of the last recorded event
   float GetElapsedTime() const {
     auto result = 0.0f;
@@ -108,6 +111,9 @@ class Event {
   std::shared_ptr<CUevent> start_;
   std::shared_ptr<CUevent> end_;
 };
+
+// Pointer to a CUDA event
+using EventPointer = CUevent*;
 
 // =================================================================================================
 
@@ -375,7 +381,7 @@ class BufferHost {
 // =================================================================================================
 
 // Enumeration of buffer access types
-enum class BufferAccess { kReadOnly, kWriteOnly, kReadWrite };
+enum class BufferAccess { kReadOnly, kWriteOnly, kReadWrite, kNotOwned };
 
 // C++11 version of 'CUdeviceptr'
 template <typename T>
@@ -385,13 +391,17 @@ class Buffer {
   // Constructor based on the regular CUDA data-type: memory management is handled elsewhere
   explicit Buffer(const CUdeviceptr buffer):
       buffer_(new CUdeviceptr),
-      access_(BufferAccess::kReadWrite) {
+      access_(BufferAccess::kNotOwned) {
     *buffer_ = buffer;
   }
 
-  // Regular constructor with memory management
+  // Regular constructor with memory management. If this class does not own the buffer object, then
+  // the memory will not be freed automatically afterwards.
   explicit Buffer(const Context &, const BufferAccess access, const size_t size):
-      buffer_(new CUdeviceptr, [](CUdeviceptr* m) { CheckError(cuMemFree(*m)); delete m; }),
+      buffer_(new CUdeviceptr, [access](CUdeviceptr* m) {
+        if (access != BufferAccess::kNotOwned) { CheckError(cuMemFree(*m)); }
+        delete m;
+      }),
       access_(access) {
     CheckError(cuMemAlloc(buffer_.get(), size*sizeof(T)));
   }
@@ -412,30 +422,32 @@ class Buffer {
   }
 
   // Copies from device to host: reading the device buffer a-synchronously
-  void ReadAsync(const Queue &queue, const size_t size, T* host, const size_t offset = 0) {
+  void ReadAsync(const Queue &queue, const size_t size, T* host, const size_t offset = 0) const {
     if (access_ == BufferAccess::kWriteOnly) { Error("reading from a write-only buffer"); }
     CheckError(cuMemcpyDtoHAsync(host, *buffer_ + offset*sizeof(T), size*sizeof(T), queue()));
   }
   void ReadAsync(const Queue &queue, const size_t size, std::vector<T> &host,
-                 const size_t offset = 0) {
+                 const size_t offset = 0) const {
     if (host.size() < size) { Error("target host buffer is too small"); }
     ReadAsync(queue, size, host.data(), offset);
   }
   void ReadAsync(const Queue &queue, const size_t size, BufferHost<T> &host,
-                 const size_t offset = 0) {
+                 const size_t offset = 0) const {
     if (host.size() < size) { Error("target host buffer is too small"); }
     ReadAsync(queue, size, host.data(), offset);
   }
 
   // Copies from device to host: reading the device buffer
-  void Read(const Queue &queue, const size_t size, T* host, const size_t offset = 0) {
+  void Read(const Queue &queue, const size_t size, T* host, const size_t offset = 0) const {
     ReadAsync(queue, size, host, offset);
     queue.Finish();
   }
-  void Read(const Queue &queue, const size_t size, std::vector<T> &host, const size_t offset = 0) {
+  void Read(const Queue &queue, const size_t size, std::vector<T> &host,
+            const size_t offset = 0) const {
     Read(queue, size, host.data(), offset);
   }
-  void Read(const Queue &queue, const size_t size, BufferHost<T> &host, const size_t offset = 0) {
+  void Read(const Queue &queue, const size_t size, BufferHost<T> &host,
+            const size_t offset = 0) const {
     Read(queue, size, host.data(), offset);
   }
 
@@ -485,7 +497,7 @@ class Buffer {
   }
 
   // Accessors to the private data-members
-  const CUdeviceptr operator()() const { return *buffer_; }
+  CUdeviceptr operator()() const { return *buffer_; }
   CUdeviceptr& operator()() { return *buffer_; }
  private:
   std::shared_ptr<CUdeviceptr> buffer_;
@@ -536,7 +548,7 @@ class Kernel {
 
   // Retrieves the amount of local memory used per work-group for this kernel. Note that this the
   // shared memory in CUDA terminology.
-  size_t LocalMemUsage(const Device &device) const {
+  size_t LocalMemUsage(const Device &) const {
     auto result = 0;
     CheckError(cuFuncGetAttribute(&result, CU_FUNC_ATTRIBUTE_SHARED_SIZE_BYTES, kernel_));
     return static_cast<size_t>(result);
@@ -566,9 +578,18 @@ class Kernel {
     CheckError(cuEventRecord(event.end(), queue()));
   }
 
+  // As above, but with an event waiting list
+  // TODO: Implement this function
+  void Launch(const Queue &queue, const std::vector<size_t> &global,
+              const std::vector<size_t> &local, Event &event,
+              std::vector<Event>& waitForEvents) {
+    if (waitForEvents.size() == 0) { return Launch(queue, global, local, event); }
+    Error("launching with an event waiting list is not implemented for the CUDA back-end");
+  }
+
   // As above, but with the default local workgroup size
   // TODO: Implement this function
-  void Launch(const Queue &queue, const std::vector<size_t> &global, Event &event) {
+  void Launch(const Queue &, const std::vector<size_t> &, Event &) {
     Error("launching with a default workgroup size is not implemented for the CUDA back-end");
   }
 

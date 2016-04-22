@@ -12,7 +12,7 @@
 // Portability here means that a similar header exists for CUDA with the same classes and
 // interfaces. In other words, moving from the OpenCL API to the CUDA API becomes a one-line change.
 //
-// This is version 4.0 of CLCudaAPI.
+// This is version 5.0 of CLCudaAPI.
 //
 // =================================================================================================
 //
@@ -77,11 +77,16 @@ class Event {
   // Regular constructor
   explicit Event(): event_(nullptr) { }
 
+  // Waits for completion of this event
+  void WaitForCompletion() const {
+    CheckError(clWaitForEvents(1, &event_));
+  }
+
   // Retrieves the elapsed time of the last recorded event. Note that no error checking is done on
   // the 'clGetEventProfilingInfo' function, since there is a bug in Apple's OpenCL implementation:
   // http://stackoverflow.com/questions/26145603/clgeteventprofilinginfo-bug-in-macosx
   float GetElapsedTime() const {
-    CheckError(clWaitForEvents(1, &event_));
+    WaitForCompletion();
     auto bytes = size_t{0};
     clGetEventProfilingInfo(event_, CL_PROFILING_COMMAND_START, 0, nullptr, &bytes);
     auto time_start = size_t{0};
@@ -94,9 +99,13 @@ class Event {
 
   // Accessor to the private data-member
   cl_event& operator()() { return event_; }
+  cl_event* pointer() { return &event_; }
  private:
   cl_event event_;
 };
+
+// Pointer to an OpenCL event
+using EventPointer = cl_event*;
 
 // =================================================================================================
 
@@ -420,7 +429,7 @@ class BufferHost {
 // =================================================================================================
 
 // Enumeration of buffer access types
-enum class BufferAccess { kReadOnly, kWriteOnly, kReadWrite };
+enum class BufferAccess { kReadOnly, kWriteOnly, kReadWrite, kNotOwned };
 
 // C++11 version of 'cl_mem'
 template <typename T>
@@ -430,13 +439,17 @@ class Buffer {
   // Constructor based on the regular OpenCL data-type: memory management is handled elsewhere
   explicit Buffer(const cl_mem buffer):
       buffer_(new cl_mem),
-      access_(BufferAccess::kReadWrite) {
+      access_(BufferAccess::kNotOwned) {
     *buffer_ = buffer;
   }
 
-  // Regular constructor with memory management
+  // Regular constructor with memory management. If this class does not own the buffer object, then
+  // the memory will not be freed automatically afterwards.
   explicit Buffer(const Context &context, const BufferAccess access, const size_t size):
-      buffer_(new cl_mem, [](cl_mem* m) { CheckError(clReleaseMemObject(*m)); delete m; }),
+      buffer_(new cl_mem, [access](cl_mem* m) {
+        if (access != BufferAccess::kNotOwned) { CheckError(clReleaseMemObject(*m)); }
+        delete m;
+      }),
       access_(access) {
     auto flags = cl_mem_flags{CL_MEM_READ_WRITE};
     if (access_ == BufferAccess::kReadOnly) { flags = CL_MEM_READ_ONLY; }
@@ -463,31 +476,33 @@ class Buffer {
   }
 
   // Copies from device to host: reading the device buffer a-synchronously
-  void ReadAsync(const Queue &queue, const size_t size, T* host, const size_t offset = 0) {
+  void ReadAsync(const Queue &queue, const size_t size, T* host, const size_t offset = 0) const {
     if (access_ == BufferAccess::kWriteOnly) { Error("reading from a write-only buffer"); }
     CheckError(clEnqueueReadBuffer(queue(), *buffer_, CL_FALSE, offset*sizeof(T), size*sizeof(T),
                                    host, 0, nullptr, nullptr));
   }
   void ReadAsync(const Queue &queue, const size_t size, std::vector<T> &host,
-                 const size_t offset = 0) {
+                 const size_t offset = 0) const {
     if (host.size() < size) { Error("target host buffer is too small"); }
     ReadAsync(queue, size, host.data(), offset);
   }
   void ReadAsync(const Queue &queue, const size_t size, BufferHost<T> &host,
-                 const size_t offset = 0) {
+                 const size_t offset = 0) const {
     if (host.size() < size) { Error("target host buffer is too small"); }
     ReadAsync(queue, size, host.data(), offset);
   }
 
   // Copies from device to host: reading the device buffer
-  void Read(const Queue &queue, const size_t size, T* host, const size_t offset = 0) {
+  void Read(const Queue &queue, const size_t size, T* host, const size_t offset = 0) const {
     ReadAsync(queue, size, host, offset);
     queue.Finish();
   }
-  void Read(const Queue &queue, const size_t size, std::vector<T> &host, const size_t offset = 0) {
+  void Read(const Queue &queue, const size_t size, std::vector<T> &host,
+            const size_t offset = 0) const {
     Read(queue, size, host.data(), offset);
   }
-  void Read(const Queue &queue, const size_t size, BufferHost<T> &host, const size_t offset = 0) {
+  void Read(const Queue &queue, const size_t size, BufferHost<T> &host,
+            const size_t offset = 0) const {
     Read(queue, size, host.data(), offset);
   }
 
@@ -600,6 +615,25 @@ class Kernel {
     CheckError(clEnqueueNDRangeKernel(queue(), *kernel_, static_cast<cl_uint>(global.size()),
                                       nullptr, global.data(), local.data(),
                                       0, nullptr, &(event())));
+  }
+
+  // As above, but with an event waiting list
+  void Launch(const Queue &queue, const std::vector<size_t> &global,
+              const std::vector<size_t> &local, Event &event,
+              std::vector<Event>& waitForEvents) {
+    if (waitForEvents.size() == 0) { return Launch(queue, global, local, event); }
+
+    // Builds a plain version of the events waiting list
+    auto waitForEventsPlain = std::vector<cl_event>();
+    for (auto &waitEvent : waitForEvents) {
+      waitForEventsPlain.push_back(waitEvent());
+    }
+
+    // Launches the kernel while waiting for other events
+    CheckError(clEnqueueNDRangeKernel(queue(), *kernel_, static_cast<cl_uint>(global.size()),
+                                      nullptr, global.data(), local.data(),
+                                      waitForEventsPlain.size(), waitForEventsPlain.data(),
+                                      &(event())));
   }
 
   // As above, but with the default local workgroup size

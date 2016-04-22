@@ -14,6 +14,9 @@ Creates a new event, to be used for example when timing kernels.
 
 Public method(s):
 
+* `void WaitForCompletion() const`:
+Waits for completion of an event (OpenCL) or does nothing (CUDA).
+
 * `float GetElapsedTime() const`:
 Retrieves the elapsed time in milliseconds of the last recorded event (e.g. a device kernel). This method first makes sure that the last event is finished before computing the elapsed time.
 
@@ -162,13 +165,13 @@ template \<typename T\> CLCudaAPI::Buffer
 
 Constants(s):
 
-* `enum class BufferAccess { kReadOnly, kWriteOnly, kReadWrite }`
-Defines the different access types for the buffers. Writing to a read-only buffer will throw an error, as will reading from a write-only buffer.
+* `enum class BufferAccess { kReadOnly, kWriteOnly, kReadWrite, kNotOwned }`
+Defines the different access types for the buffers. Writing to a read-only buffer will throw an error, as will reading from a write-only buffer. A buffer which is of type `kNotOwned` will not be automatically freed afterwards.
 
 Constructor(s):
 
 * `Buffer(const Context &context, const BufferAccess access, const size_t size)`:
-Initializes a new linear 1D memory buffer on the device of type T. This buffer is allocated with a fixed number of elements given by `size`. Note that the buffer's elements are not initialized. The buffer can be read-only, write-only, or read-write, as specified by the `access` argument.
+Initializes a new linear 1D memory buffer on the device of type T. This buffer is allocated with a fixed number of elements given by `size`. Note that the buffer's elements are not initialized. The buffer can be read-only, write-only, read-write, or not-owned as specified by the `access` argument.
 
 * `Buffer(const Context &context, const size_t size)`:
 As above, but now defaults to read-write access.
@@ -178,12 +181,12 @@ Creates a new buffer based on data in a linear C++ container (such as `std::vect
 
 Public method(s):
 
-* `void ReadAsync(const Queue &queue, const size_t size, T* host)` and
+* `void ReadAsync(const Queue &queue, const size_t size, T* host) const` and
 `void ReadAsync(const Queue &queue, const size_t size, std::vector<T> &host)` and
 `void ReadAsync(const Queue &queue, const size_t size, BufferHost<T> &host)`:
 Copies `size` elements from the current device buffer to the target host buffer. The host buffer has to be pre-allocated with a size of at least `size` elements. This method is a-synchronous: it can return before the copy operation is completed.
 
-* `void Read(const Queue &queue, const size_t size, T* host)` and
+* `void Read(const Queue &queue, const size_t size, T* host) const` and
 `void Read(const Queue &queue, const size_t size, std::vector<T> &host)` and
 `void Read(const Queue &queue, const size_t size, BufferHost<T> &host)`:
 As above, but now completes the operation before returning.
@@ -228,6 +231,8 @@ Retrieves the amount of on-chip scratchpad memory (local memory in OpenCL, share
 
 * `Launch(const Queue &queue, const std::vector<size_t> &global, const std::vector<size_t> &local, Event &event)`:
 Launches a kernel onto the specified queue. This kernel launch is a-synchronous: this method can return before the device kernel is completed. The total number of threads launched is equal to the `global` vector; the number of threads per OpenCL work-group or CUDA thread-block is given by the `local` vector. The elapsed time is recorded into the `event` argument.
+
+* `Launch(const Queue &queue, const std::vector<size_t> &global, const std::vector<size_t> &local, Event &event, std::vector<Event>& waitForEvents)`: As above, but now this kernel is only launched after the other specified events have finished (OpenCL only).
 
 * `Launch(const Queue &queue, const std::vector<size_t> &global, Event &event)`: As above, but now the local size is determined automatically (OpenCL only).
 

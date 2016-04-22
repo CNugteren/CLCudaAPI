@@ -1,4 +1,11 @@
 
+Version 5.0 (2016-04-21):
+- Buffers can now also be 'not owned' to disable automatic memory freeing afterwards
+- Made 'Buffer::Read' and 'Buffer::ReadAsync' constant methods
+- Added new methods to the API:
+  * Event::WaitForCompletion (OpenCL only)
+  * Kernel::Launch (version with OpenCL waiting list)
+
 Version 4.0 (2015-11-01):
 - Made 'CopyTo' and 'CopyToAsync' constant methods
 - Added offset support to the Buffer class (credits go to 'ielhelw')
