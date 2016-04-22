@@ -576,6 +576,15 @@ class Kernel {
     CheckError(cuEventRecord(event.end(), queue()));
   }
 
+  // As above, but with an event waiting list
+  // TODO: Implement this function
+  void Launch(const Queue &queue, const std::vector<size_t> &global,
+              const std::vector<size_t> &local, Event &event,
+              std::vector<Event>& waitForEvents) {
+    if (waitForEvents.size() == 0) { return Launch(queue, global, local, event); }
+    Error("launching with an event waiting list is not implemented for the CUDA back-end");
+  }
+
   // As above, but with the default local workgroup size
   // TODO: Implement this function
   void Launch(const Queue &, const std::vector<size_t> &, Event &) {

@@ -3,6 +3,7 @@ Development version (next release)
 - Buffers can now also be 'not owned' to disable automatic memory freeing afterwards
 - Added new methods to the API:
   * Event::WaitForCompletion (OpenCL only)
+  * Kernel::Launch (version with OpenCL waiting list)
 
 Version 4.0 (2015-11-01):
 - Made 'CopyTo' and 'CopyToAsync' constant methods

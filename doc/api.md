@@ -232,5 +232,7 @@ Retrieves the amount of on-chip scratchpad memory (local memory in OpenCL, share
 * `Launch(const Queue &queue, const std::vector<size_t> &global, const std::vector<size_t> &local, Event &event)`:
 Launches a kernel onto the specified queue. This kernel launch is a-synchronous: this method can return before the device kernel is completed. The total number of threads launched is equal to the `global` vector; the number of threads per OpenCL work-group or CUDA thread-block is given by the `local` vector. The elapsed time is recorded into the `event` argument.
 
+* `Launch(const Queue &queue, const std::vector<size_t> &global, const std::vector<size_t> &local, Event &event, std::vector<Event>& waitForEvents)`: As above, but now this kernel is only launched after the other specified events have finished (OpenCL only).
+
 * `Launch(const Queue &queue, const std::vector<size_t> &global, Event &event)`: As above, but now the local size is determined automatically (OpenCL only).
 
