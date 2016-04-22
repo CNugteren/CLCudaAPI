@@ -14,6 +14,9 @@ Creates a new event, to be used for example when timing kernels.
 
 Public method(s):
 
+* `void WaitForCompletion() const`:
+Waits for completion of an event (OpenCL) or does nothing (CUDA).
+
 * `float GetElapsedTime() const`:
 Retrieves the elapsed time in milliseconds of the last recorded event (e.g. a device kernel). This method first makes sure that the last event is finished before computing the elapsed time.
 

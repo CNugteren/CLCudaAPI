@@ -94,6 +94,9 @@ class Event {
     CheckError(cuEventCreate(end_.get(), CU_EVENT_DEFAULT));
   }
 
+  // Waits for completion of this event (not implemented for CUDA)
+  void WaitForCompletion() const { }
+
   // Retrieves the elapsed time of the last recorded event
   float GetElapsedTime() const {
     auto result = 0.0f;
@@ -108,6 +111,9 @@ class Event {
   std::shared_ptr<CUevent> start_;
   std::shared_ptr<CUevent> end_;
 };
+
+// Pointer to a CUDA event
+using EventPointer = CUevent*;
 
 // =================================================================================================
 
