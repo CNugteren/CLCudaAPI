@@ -1,5 +1,5 @@
 
-Development version (next release)
+Version 5.0 (2016-04-21):
 - Buffers can now also be 'not owned' to disable automatic memory freeing afterwards
 - Made 'Buffer::Read' and 'Buffer::ReadAsync' constant methods
 - Added new methods to the API:
