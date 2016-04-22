@@ -1,6 +1,7 @@
 
 Development version (next release)
 - Buffers can now also be 'not owned' to disable automatic memory freeing afterwards
+- Made 'Buffer::Read' and 'Buffer::ReadAsync' constant methods
 - Added new methods to the API:
   * Event::WaitForCompletion (OpenCL only)
   * Kernel::Launch (version with OpenCL waiting list)

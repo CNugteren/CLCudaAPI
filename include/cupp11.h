@@ -422,30 +422,32 @@ class Buffer {
   }
 
   // Copies from device to host: reading the device buffer a-synchronously
-  void ReadAsync(const Queue &queue, const size_t size, T* host, const size_t offset = 0) {
+  void ReadAsync(const Queue &queue, const size_t size, T* host, const size_t offset = 0) const {
     if (access_ == BufferAccess::kWriteOnly) { Error("reading from a write-only buffer"); }
     CheckError(cuMemcpyDtoHAsync(host, *buffer_ + offset*sizeof(T), size*sizeof(T), queue()));
   }
   void ReadAsync(const Queue &queue, const size_t size, std::vector<T> &host,
-                 const size_t offset = 0) {
+                 const size_t offset = 0) const {
     if (host.size() < size) { Error("target host buffer is too small"); }
     ReadAsync(queue, size, host.data(), offset);
   }
   void ReadAsync(const Queue &queue, const size_t size, BufferHost<T> &host,
-                 const size_t offset = 0) {
+                 const size_t offset = 0) const {
     if (host.size() < size) { Error("target host buffer is too small"); }
     ReadAsync(queue, size, host.data(), offset);
   }
 
   // Copies from device to host: reading the device buffer
-  void Read(const Queue &queue, const size_t size, T* host, const size_t offset = 0) {
+  void Read(const Queue &queue, const size_t size, T* host, const size_t offset = 0) const {
     ReadAsync(queue, size, host, offset);
     queue.Finish();
   }
-  void Read(const Queue &queue, const size_t size, std::vector<T> &host, const size_t offset = 0) {
+  void Read(const Queue &queue, const size_t size, std::vector<T> &host,
+            const size_t offset = 0) const {
     Read(queue, size, host.data(), offset);
   }
-  void Read(const Queue &queue, const size_t size, BufferHost<T> &host, const size_t offset = 0) {
+  void Read(const Queue &queue, const size_t size, BufferHost<T> &host,
+            const size_t offset = 0) const {
     Read(queue, size, host.data(), offset);
   }
 

@@ -181,12 +181,12 @@ Creates a new buffer based on data in a linear C++ container (such as `std::vect
 
 Public method(s):
 
-* `void ReadAsync(const Queue &queue, const size_t size, T* host)` and
+* `void ReadAsync(const Queue &queue, const size_t size, T* host) const` and
 `void ReadAsync(const Queue &queue, const size_t size, std::vector<T> &host)` and
 `void ReadAsync(const Queue &queue, const size_t size, BufferHost<T> &host)`:
 Copies `size` elements from the current device buffer to the target host buffer. The host buffer has to be pre-allocated with a size of at least `size` elements. This method is a-synchronous: it can return before the copy operation is completed.
 
-* `void Read(const Queue &queue, const size_t size, T* host)` and
+* `void Read(const Queue &queue, const size_t size, T* host) const` and
 `void Read(const Queue &queue, const size_t size, std::vector<T> &host)` and
 `void Read(const Queue &queue, const size_t size, BufferHost<T> &host)`:
 As above, but now completes the operation before returning.
