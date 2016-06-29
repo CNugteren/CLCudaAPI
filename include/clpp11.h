@@ -12,7 +12,7 @@
 // Portability here means that a similar header exists for CUDA with the same classes and
 // interfaces. In other words, moving from the OpenCL API to the CUDA API becomes a one-line change.
 //
-// This is version 5.0 of CLCudaAPI.
+// This is version 6.0 of CLCudaAPI.
 //
 // =================================================================================================
 //
@@ -162,6 +162,15 @@ class Device {
 
   // Methods to retrieve device information
   std::string Version() const { return GetInfoString(CL_DEVICE_VERSION); }
+  size_t VersionNumber() const
+  {
+    std::string version_string = Version().substr(7);
+    // Space separates the end of the OpenCL version number from the beginning of the
+    // vendor-specific information.
+    size_t next_whitespace = version_string.find(' ');
+    size_t version = (size_t) (100.0 * std::stod(version_string.substr(0, next_whitespace)));
+    return version;
+  }
   std::string Vendor() const { return GetInfoString(CL_DEVICE_VENDOR); }
   std::string Name() const { return GetInfoString(CL_DEVICE_NAME); }
   std::string Type() const {
@@ -205,6 +214,14 @@ class Device {
     if (local.size() > MaxWorkItemDimensions()) { return false; }
     return true;
   }
+
+  // Query for a specific type of device or brand
+  bool IsCPU() const { return Type() == "CPU"; }
+  bool IsGPU() const { return Type() == "GPU"; }
+  bool IsAMD() const { return Vendor() == "AMD" || Vendor() == "Advanced Micro Devices, Inc."; }
+  bool IsNVIDIA() const { return Vendor() == "NVIDIA" || Vendor() == "NVIDIA Corporation"; }
+  bool IsIntel() const { return Vendor() == "Intel" || Vendor() == "GenuineIntel"; }
+  bool IsARM() const { return Vendor() == "ARM"; }
 
   // Accessor to the private data-member
   const cl_device_id& operator()() const { return device_; }
@@ -268,9 +285,13 @@ class Context {
 
   // Accessor to the private data-member
   const cl_context& operator()() const { return *context_; }
+  cl_context* pointer() const { return &(*context_); }
  private:
   std::shared_ptr<cl_context> context_;
 };
+
+// Pointer to an OpenCL context
+using ContextPointer = cl_context*;
 
 // =================================================================================================
 
@@ -282,7 +303,7 @@ class Program {
  public:
   // Note that there is no constructor based on the regular OpenCL data-type because of extra state
 
-  // Regular constructor with memory management
+  // Source-based constructor with memory management
   explicit Program(const Context &context, std::string source):
       program_(new cl_program, [](cl_program* p) { CheckError(clReleaseProgram(*p)); delete p; }),
       length_(source.length()),
@@ -291,6 +312,22 @@ class Program {
     auto status = CL_SUCCESS;
     *program_ = clCreateProgramWithSource(context(), 1, &source_ptr_, &length_, &status);
     CheckError(status);
+  }
+
+  // Binary-based constructor with memory management
+  explicit Program(const Device &device, const Context &context, const std::string& binary):
+      program_(new cl_program, [](cl_program* p) { CheckError(clReleaseProgram(*p)); delete p; }),
+      length_(binary.length()),
+      source_(binary),
+      source_ptr_(&source_[0]) {
+    auto status1 = CL_SUCCESS;
+    auto status2 = CL_SUCCESS;
+    const cl_device_id dev = device();
+    *program_ = clCreateProgramWithBinary(context(), 1, &dev, &length_,
+                                          reinterpret_cast<const unsigned char**>(&source_ptr_),
+                                          &status1, &status2);
+    CheckError(status1);
+    CheckError(status2);
   }
 
   // Compiles the device program and returns whether or not there where any warnings/errors
@@ -321,7 +358,7 @@ class Program {
     return result;
   }
 
-  // Retrieves an intermediate representation of the compiled program
+  // Retrieves a binary or an intermediate representation of the compiled program
   std::string GetIR() const {
     auto bytes = size_t{0};
     CheckError(clGetProgramInfo(*program_, CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &bytes, nullptr));
@@ -337,7 +374,7 @@ class Program {
  private:
   std::shared_ptr<cl_program> program_;
   size_t length_;
-  std::string source_;
+  std::string source_; // Note: the source can also be a binary or IR
   const char* source_ptr_;
 };
 
@@ -359,8 +396,16 @@ class Queue {
                                                              delete s; }) {
     auto status = CL_SUCCESS;
     #ifdef CL_VERSION_2_0
-      cl_queue_properties properties[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0};
-      *queue_ = clCreateCommandQueueWithProperties(context(), device(), properties, &status);
+      size_t ocl_version = device.VersionNumber();
+      if (ocl_version >= 200)
+      {
+        cl_queue_properties properties[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0};
+        *queue_ = clCreateCommandQueueWithProperties(context(), device(), properties, &status);
+      }
+      else
+      {
+        *queue_ = clCreateCommandQueue(context(), device(), CL_QUEUE_PROFILING_ENABLE, &status);
+      }
     #else
       *queue_ = clCreateCommandQueue(context(), device(), CL_QUEUE_PROFILING_ENABLE, &status);
     #endif
@@ -611,15 +656,15 @@ class Kernel {
 
   // Launches a kernel onto the specified queue
   void Launch(const Queue &queue, const std::vector<size_t> &global,
-              const std::vector<size_t> &local, Event &event) {
+              const std::vector<size_t> &local, EventPointer event) {
     CheckError(clEnqueueNDRangeKernel(queue(), *kernel_, static_cast<cl_uint>(global.size()),
                                       nullptr, global.data(), local.data(),
-                                      0, nullptr, &(event())));
+                                      0, nullptr, event));
   }
 
   // As above, but with an event waiting list
   void Launch(const Queue &queue, const std::vector<size_t> &global,
-              const std::vector<size_t> &local, Event &event,
+              const std::vector<size_t> &local, EventPointer event,
               std::vector<Event>& waitForEvents) {
     if (waitForEvents.size() == 0) { return Launch(queue, global, local, event); }
 
@@ -632,15 +677,16 @@ class Kernel {
     // Launches the kernel while waiting for other events
     CheckError(clEnqueueNDRangeKernel(queue(), *kernel_, static_cast<cl_uint>(global.size()),
                                       nullptr, global.data(), local.data(),
-                                      waitForEventsPlain.size(), waitForEventsPlain.data(),
-                                      &(event())));
+                                      static_cast<cl_uint>(waitForEventsPlain.size()),
+                                      waitForEventsPlain.data(),
+                                      event));
   }
 
   // As above, but with the default local workgroup size
-  void Launch(const Queue &queue, const std::vector<size_t> &global, Event &event) {
+  void Launch(const Queue &queue, const std::vector<size_t> &global, EventPointer event) {
     CheckError(clEnqueueNDRangeKernel(queue(), *kernel_, static_cast<cl_uint>(global.size()),
                                       nullptr, global.data(), nullptr,
-                                      0, nullptr, &(event())));
+                                      0, nullptr, event));
   }
 
   // Accessor to the private data-member

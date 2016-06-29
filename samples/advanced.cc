@@ -179,7 +179,7 @@ int main() {
   // Enqueues the kernel and waits for the result. Note that launching the kernel is always
   // a-synchronous and thus requires finishing the queue in order to complete the operation.
   printf("## Running the kernel...\n");
-  kernel.Launch(queue, global, local, event);
+  kernel.Launch(queue, global, local, event.pointer());
   queue.Finish(event);
   printf(" > Took %.3lf ms\n", event.GetElapsedTime());
 
