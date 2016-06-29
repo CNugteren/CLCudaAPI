@@ -73,7 +73,7 @@ int main() {
   program.Build(device, compiler_options);
   auto kernel = CLCudaAPI::Kernel(program, "add");
   kernel.SetArguments(a, b, c);
-  kernel.Launch(queue, {elements}, {128}, event);
+  kernel.Launch(queue, {elements}, {128}, event.pointer());
   queue.Finish(event);
 
   // Reads the results back to the host memory

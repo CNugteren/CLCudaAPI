@@ -1,4 +1,12 @@
 
+Version 6.0 (2016-06-29):
+- Added the possibility to use Event pointers, adjusted the Kernel::Launch function to do so
+- Added a new constructor for Program based on a binary (OpenCL only)
+- Fixed a bug when OpenCL 2.0 or newer is installed but the device doesn't support it
+- Added new methods to the API:
+  * Device::VersionNumber (integer version of the string-getter Device::Version)
+  * Device::IsCPU, Device::IsGPU, Device::IsAMD, Device::IsNVIDIA, Device::IsIntel, Device::IsARM
+
 Version 5.0 (2016-04-21):
 - Buffers can now also be 'not owned' to disable automatic memory freeing afterwards
 - Made 'Buffer::Read' and 'Buffer::ReadAsync' constant methods
