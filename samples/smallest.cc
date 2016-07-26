@@ -51,7 +51,7 @@
 
 int main() {
   constexpr auto platform_id = size_t{0};
-  constexpr auto device_id = size_t{1};
+  constexpr auto device_id = size_t{0};
   auto platform = CLCudaAPI::Platform(platform_id);
   auto device = CLCudaAPI::Device(platform, device_id);
   auto context = CLCudaAPI::Context(device);
