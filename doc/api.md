@@ -58,7 +58,7 @@ Retrieves the maximum total number of threads in an OpenCL work-group or CUDA th
 * `size_t MaxWorkItemDimensions() const`:
 Retrieves the maximum number of dimensions (e.g. 2D or 3D) in an OpenCL work-group or CUDA thread-block.
 
-* `size_t LocalMemSize() const`:
+* `unsigned long LocalMemSize() const`:
 Retrieves the maximum amount of on-chip scratchpad memory ('local memory') available to a single OpenCL work-group or CUDA thread-block.
 
 * `std::string Capabilities() const`:
@@ -70,10 +70,10 @@ Retrieves the device's core clock frequency in MHz.
 * `size_t ComputeUnits() const`:
 Retrieves the number of compute units (OpenCL terminology) or multi-processors (CUDA terminology) in the device.
 
-* `size_t MemorySize() const`:
+* `unsigned long MemorySize() const`:
 Retrieves the total global memory size.
 
-* `size_t MaxAllocSize() const`:
+* `unsigned long MaxAllocSize() const`:
 Retrieves the maximum amount of allocatable global memory per allocation.
 
 * `size_t MemoryClock() const`:
@@ -82,13 +82,29 @@ Retrieves the device's memory clock frequency in MHz (CUDA back-end) or 0 (OpenC
 * `size_t MemoryBusWidth() const`:
 Retrieves the device's memory bus-width in bits (CUDA back-end) or 0 (OpenCL back-end).
 
-
 * `bool IsLocalMemoryValid(const size_t local_mem_usage) const`:
 Given a requested amount of local on-chip scratchpad memory, this method returns whether or not this is a valid configuration for this particular device.
 
 * `bool IsThreadConfigValid(const std::vector<size_t> &local) const`:
 Given a requested OpenCL work-group or CUDA thread-block configuration `local`, this method returns whether or not this is a valid configuration for this particular device.
 
+* `bool IsCPU() const`:
+Determines whether this device is of the CPU type.
+
+* `bool IsGPU() const`:
+Determines whether this device is of the GPU type.
+
+* `bool IsAMD() const`:
+Determines whether this device is of the AMD brand.
+
+* `bool IsNVIDIA() const`:
+Determines whether this device is of the NVIDIA brand.
+
+* `bool IsIntel() const`:
+Determines whether this device is of the Intel brand.
+
+* `bool IsARM() const`:
+Determines whether this device is of the ARM brand.
 
 CLCudaAPI::Context
 -------------
@@ -226,13 +242,14 @@ Method to set a kernel argument (l-value or r-value). The argument `index` speci
 
 * `template <typename... Args> void SetArguments(Args&... args)`: As above, but now sets all arguments in one go, starting at index 0. This overwrites any previous arguments (if any). The parameter pack `args` takes any number of arguments of different types, including `CLCudaAPI::Buffer`.
 
-* `size_t LocalMemUsage(const Device &device) const`:
+* `unsigned long LocalMemUsage(const Device &device) const`:
 Retrieves the amount of on-chip scratchpad memory (local memory in OpenCL, shared memory in CUDA) required by this specific kernel.
+
+* `std::string GetFunctionName() const `:
+Retrieves the name of the kernel (OpenCL only).
 
 * `Launch(const Queue &queue, const std::vector<size_t> &global, const std::vector<size_t> &local, Event &event)`:
 Launches a kernel onto the specified queue. This kernel launch is a-synchronous: this method can return before the device kernel is completed. The total number of threads launched is equal to the `global` vector; the number of threads per OpenCL work-group or CUDA thread-block is given by the `local` vector. The elapsed time is recorded into the `event` argument.
 
-* `Launch(const Queue &queue, const std::vector<size_t> &global, const std::vector<size_t> &local, Event &event, std::vector<Event>& waitForEvents)`: As above, but now this kernel is only launched after the other specified events have finished (OpenCL only).
-
-* `Launch(const Queue &queue, const std::vector<size_t> &global, Event &event)`: As above, but now the local size is determined automatically (OpenCL only).
+* `Launch(const Queue &queue, const std::vector<size_t> &global, const std::vector<size_t> &local, Event &event, std::vector<Event>& waitForEvents)`: As above, but now this kernel is only launched after the other specified events have finished (OpenCL only). If `local` is empty, the kernel-size is determined automatically (OpenCL only).
 
