@@ -1,4 +1,12 @@
 
+Version 7.0 (2016-08-03):
+- Re-wrote the OpenCL event implementation with proper memory management
+- Updated some return types of device-query information to fix issues on 32-bit systems
+- Updated the API documentation
+- Refactored some functions to reduce the amount of code
+- Added new methods to the API:
+  * Kernel::GetFunctionName
+
 Version 6.0 (2016-06-29):
 - Added the possibility to use Event pointers, adjusted the Kernel::Launch function to do so
 - Added a new constructor for Program based on a binary (OpenCL only)
