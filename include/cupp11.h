@@ -139,6 +139,12 @@ class Platform {
   size_t platform_id_;
 };
 
+// Retrieves a vector with all platforms. Note that there is just one platform in CUDA.
+std::vector<Platform> GetAllPlatforms() {
+  auto all_platforms = std::vector<Platform>{ Platform(size_t{0}) };
+  return all_platforms;
+}
+
 // =================================================================================================
 
 // C++11 version of 'CUdevice'

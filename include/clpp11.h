@@ -149,6 +149,17 @@ class Platform {
   cl_platform_id platform_;
 };
 
+// Retrieves a vector with all platforms
+std::vector<Platform> GetAllPlatforms() {
+  auto num_platforms = cl_uint{0};
+  CheckError(clGetPlatformIDs(0, nullptr, &num_platforms));
+  auto all_platforms = std::vector<Platform>();
+  for (size_t platform_id = 0; platform_id < static_cast<size_t>(num_platforms); ++platform_id) {
+    all_platforms.push_back(Platform(platform_id));
+  }
+  return all_platforms;
+}
+
 // =================================================================================================
 
 // C++11 version of 'cl_device_id'
