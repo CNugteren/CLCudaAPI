@@ -124,6 +124,17 @@ SCENARIO("platforms can be created and used", "[Platform]") {
 
 // =================================================================================================
 
+TEST_CASE("a list of all platforms can be retrieved", "[Platform]") {
+  auto all_platforms = CLCudaAPI::GetAllPlatforms();
+  REQUIRE(all_platforms.size() > 0);
+  for (auto &platform : all_platforms) {
+    auto num_devices = platform.NumDevices();
+    REQUIRE(num_devices > 0);
+  }
+}
+
+// =================================================================================================
+
 SCENARIO("devices can be created and used", "[Device][Platform]") {
   GIVEN("An example device on a platform") {
     auto platform = CLCudaAPI::Platform(kPlatformID);
