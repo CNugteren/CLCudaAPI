@@ -2,6 +2,7 @@
 Development version (next release)
 - Added new methods to the API:
   * GetAllPlatforms
+  * A new constructor for the Program class based on a binary or IR string (both OpenCL and CUDA)
 
 Version 7.0 (2016-08-03):
 - Re-wrote the OpenCL event implementation with proper memory management
