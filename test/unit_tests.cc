@@ -124,6 +124,17 @@ SCENARIO("platforms can be created and used", "[Platform]") {
 
 // =================================================================================================
 
+TEST_CASE("a list of all platforms can be retrieved", "[Platform]") {
+  auto all_platforms = CLCudaAPI::GetAllPlatforms();
+  REQUIRE(all_platforms.size() > 0);
+  for (auto &platform : all_platforms) {
+    auto num_devices = platform.NumDevices();
+    REQUIRE(num_devices > 0);
+  }
+}
+
+// =================================================================================================
+
 SCENARIO("devices can be created and used", "[Device][Platform]") {
   GIVEN("An example device on a platform") {
     auto platform = CLCudaAPI::Platform(kPlatformID);
@@ -220,10 +231,35 @@ SCENARIO("programs can be created and used", "[Program][Context][Device][Platfor
     auto platform = CLCudaAPI::Platform(kPlatformID);
     auto device = CLCudaAPI::Device(platform, kDeviceID);
     auto context = CLCudaAPI::Context(device);
-    auto source = std::string{""};
-    auto program = CLCudaAPI::Program(context, source);
+    #if USE_OPENCL
+      auto source = R"(
+      __kernel void add(__global const float* a, __global const float* b, __global float* c) {
+        unsigned idx = get_global_id(0);
+        c[idx] = a[idx] + b[idx];
+      })";
 
-    // TODO: Fill in
+    // ... or use CUDA instead
+    #else
+      auto source = R"(
+      extern "C" __global__ void add(const float* a, const float* b, float* c) {
+        unsigned idx = threadIdx.x + blockDim.x*blockIdx.x;
+        c[idx] = a[idx] + b[idx];
+      })";
+    #endif
+    auto options = std::vector<std::string>();
+
+    auto program = CLCudaAPI::Program(context, source);
+    auto build_result = program.Build(device, options);
+    REQUIRE(build_result == CLCudaAPI::BuildStatus::kSuccess);
+
+    WHEN("an compiled IR is generated from the compiled program") {
+      auto ir = program.GetIR();
+      THEN("a new program can be created based on the IR") {
+        auto new_program = CLCudaAPI::Program(device, context, ir);
+        auto new_build_result = new_program.Build(device, options);
+        REQUIRE(new_build_result == CLCudaAPI::BuildStatus::kSuccess);
+      }
+    }
   }
 }
 

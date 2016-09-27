@@ -31,7 +31,7 @@
 # CMake project details
 cmake_minimum_required(VERSION 2.8.10)
 project("CLCudaAPI" CXX)
-set(CLCudaAPI_VERSION_MAJOR 7)
+set(CLCudaAPI_VERSION_MAJOR 8)
 set(CLCudaAPI_VERSION_MINOR 0)
 
 # ==================================================================================================

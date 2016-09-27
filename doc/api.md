@@ -29,6 +29,11 @@ Constructor(s):
 * `Platform(const size_t platform_id)`:
 When using the OpenCL back-end, this initializes a new OpenCL platform (e.g. AMD SDK, Intel SDK, NVIDIA SDK) specified by the integer `platform_id`. When using the CUDA back-end, this initializes the CUDA driver API. The `platform_id` argument is ignored: there is only one platform.
 
+Non-member function(s):
+
+* `std::vector<Platform> GetAllPlatforms()`:
+Retrieves a vector containing all available platforms.
+
 
 CLCudaAPI::Device
 -------------
@@ -127,6 +132,9 @@ Constructor(s):
 
 * `Program(const Context &context, std::string source)`:
 Creates a new OpenCL or CUDA program on a given context. A program is a collection of one or more device kernels which form a single compilation unit together. The device-code is passed as a string. Such a string can for example be generated, hard-coded, or read from file at run-time. If passed as an r-value (e.g. using `std::move`), the device-code string is moved instead of copied into the class' member variable.
+
+* `Program(const Device &device, const Context &context, const std::string& binary)`:
+As above, but now the program is constructed based on an already compiled IR or binary of the device kernels. This requires a context corresponding to the binary. This constructor for OpenCL is based on the `clCreateProgramWithBinary` function.
 
 Public method(s):
 
