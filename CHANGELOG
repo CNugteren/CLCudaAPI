@@ -1,5 +1,6 @@
 
-Development version (next release)
+Version 8.0 (2016-09-27):
+- Several minor fixes
 - Added new methods to the API:
   * GetAllPlatforms
   * A new constructor for the Program class based on a binary or IR string (both OpenCL and CUDA)

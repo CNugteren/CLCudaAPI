@@ -12,7 +12,7 @@
 // Portability here means that a similar header exists for OpenCL with the same classes and
 // interfaces. In other words, moving from the CUDA API to the OpenCL API becomes a one-line change.
 //
-// This is version 6.0 of CLCudaAPI.
+// This is version 8.0 of CLCudaAPI.
 //
 // =================================================================================================
 //
@@ -140,7 +140,7 @@ class Platform {
 };
 
 // Retrieves a vector with all platforms. Note that there is just one platform in CUDA.
-std::vector<Platform> GetAllPlatforms() {
+inline std::vector<Platform> GetAllPlatforms() {
   auto all_platforms = std::vector<Platform>{ Platform(size_t{0}) };
   return all_platforms;
 }
