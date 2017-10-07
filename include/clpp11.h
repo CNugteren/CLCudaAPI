@@ -40,7 +40,6 @@
 #include <string>    // std::string
 #include <vector>    // std::vector
 #include <memory>    // std::shared_ptr
-#include <stdexcept> // std::runtime_error
 #include <numeric>   // std::accumulate
 #include <cstring>   // std::strlen
 
@@ -52,21 +51,40 @@
   #include <CL/opencl.h>
 #endif
 
+// Exception classes
+#include "cxpp11_common.hpp"
+
 namespace CLCudaAPI {
 // =================================================================================================
 
-// Error occurred in the C++11 OpenCL header (this file)
-inline void Error(const std::string &message) {
-  throw std::runtime_error("Internal OpenCL error: "+message);
-}
+// Represents a runtime error returned by an OpenCL API function
+class CLCudaAPIError : public ErrorCode<DeviceError, cl_int> {
+ public:
+  explicit CLCudaAPIError(cl_int status, const std::string &where):
+      ErrorCode(status, where, "OpenCL error: " + where + ": " +
+                               std::to_string(static_cast<int>(status))) {
+  }
+
+  static void Check(const cl_int status, const std::string &where) {
+    if (status != CL_SUCCESS) {
+      throw CLCudaAPIError(status, where);
+    }
+  }
+
+  static void CheckDtor(const cl_int status, const std::string &where) {
+    if (status != CL_SUCCESS) {
+      fprintf(stderr, "CLCudaAPI: %s (ignoring)\n", CLCudaAPIError(status, where).what());
+    }
+  }
+};
+
+// =================================================================================================
 
 // Error occurred in OpenCL
-inline void CheckError(const cl_int status) {
-  if (status != CL_SUCCESS) {
-    throw std::runtime_error("Internal OpenCL error: "+std::to_string(status));
-  }
-}
-inline void CheckErrorDtor(const cl_int status) { CheckError(status); }
+#define CheckError(call) CLCudaAPIError::Check(call, CLCudaAPIError::TrimCallString(#call))
+
+// Error occurred in OpenCL (no-exception version for destructors)
+#define CheckErrorDtor(call) CLCudaAPIError::CheckDtor(call, CLCudaAPIError::TrimCallString(#call))
 
 // =================================================================================================
 
@@ -137,10 +155,10 @@ class Platform {
     auto num_platforms = cl_uint{0};
     CheckError(clGetPlatformIDs(0, nullptr, &num_platforms));
     if (num_platforms == 0) {
-      Error("Platform: no platforms found");
+      throw RuntimeError("Platform: no platforms found");
     }
     if (platform_id >= num_platforms) {
-      Error("Platform: invalid platform ID "+std::to_string(platform_id));
+      throw RuntimeError("Platform: invalid platform ID "+std::to_string(platform_id));
     }
     auto platforms = std::vector<cl_platform_id>(num_platforms);
     CheckError(clGetPlatformIDs(num_platforms, platforms.data(), nullptr));
@@ -200,10 +218,10 @@ class Device {
   explicit Device(const Platform &platform, const size_t device_id) {
     auto num_devices = platform.NumDevices();
     if (num_devices == 0) {
-      Error("Device: no devices found");
+      throw RuntimeError("Device: no devices found");
     }
     if (device_id >= num_devices) {
-      Error("Device: invalid device ID "+std::to_string(device_id));
+      throw RuntimeError("Device: invalid device ID "+std::to_string(device_id));
     }
 
     auto devices = std::vector<cl_device_id>(num_devices);
@@ -368,7 +386,7 @@ class Context {
     auto status = CL_SUCCESS;
     const cl_device_id dev = device();
     *context_ = clCreateContext(nullptr, 1, &dev, nullptr, nullptr, &status);
-    CheckError(status);
+    CLCudaAPIError::Check(status, "clCreateContext");
   }
 
   // Accessor to the private data-member
@@ -398,7 +416,7 @@ class Program {
     const auto length = source.length();
     auto status = CL_SUCCESS;
     *program_ = clCreateProgramWithSource(context(), 1, &source_ptr, &length, &status);
-    CheckError(status);
+    CLCudaAPIError::Check(status, "clCreateProgramWithSource");
   }
 
   // Binary-based constructor with memory management
@@ -415,8 +433,8 @@ class Program {
     *program_ = clCreateProgramWithBinary(context(), 1, &dev, &length,
                                           reinterpret_cast<const unsigned char**>(&binary_ptr),
                                           &status1, &status2);
-    CheckError(status1);
-    CheckError(status2);
+    CLCudaAPIError::Check(status1, "clCreateProgramWithBinary (binary status)");
+    CLCudaAPIError::Check(status2, "clCreateProgramWithBinary");
   }
 
   // Compiles the device program and checks whether or not there are any warnings/errors
@@ -475,7 +493,7 @@ class Queue {
       }) {
     auto status = CL_SUCCESS;
     *queue_ = clCreateCommandQueue(context(), device(), CL_QUEUE_PROFILING_ENABLE, &status);
-    CheckError(status);
+    CLCudaAPIError::Check(status, "clCreateCommandQueue");
   }
 
   // Synchronizes the queue
@@ -567,7 +585,7 @@ class Buffer {
     if (access_ == BufferAccess::kWriteOnly) { flags = CL_MEM_WRITE_ONLY; }
     auto status = CL_SUCCESS;
     *buffer_ = clCreateBuffer(context(), flags, size*sizeof(T), nullptr, &status);
-    CheckError(status);
+    CLCudaAPIError::Check(status, "clCreateBuffer");
   }
 
   // As above, but now with read/write access as a default
@@ -589,7 +607,7 @@ class Buffer {
   // Copies from device to host: reading the device buffer a-synchronously
   void ReadAsync(const Queue &queue, const size_t size, T* host, const size_t offset = 0) const {
     if (access_ == BufferAccess::kWriteOnly) {
-      Error("Buffer: reading from a write-only buffer");
+      throw LogicError("Buffer: reading from a write-only buffer");
     }
     CheckError(clEnqueueReadBuffer(queue(), *buffer_, CL_FALSE, offset*sizeof(T), size*sizeof(T),
                                    host, 0, nullptr, nullptr));
@@ -597,14 +615,14 @@ class Buffer {
   void ReadAsync(const Queue &queue, const size_t size, std::vector<T> &host,
                  const size_t offset = 0) const {
     if (host.size() < size) {
-      Error("Buffer: target host buffer is too small");
+      throw LogicError("Buffer: target host buffer is too small");
     }
     ReadAsync(queue, size, host.data(), offset);
   }
   void ReadAsync(const Queue &queue, const size_t size, BufferHost<T> &host,
                  const size_t offset = 0) const {
     if (host.size() < size) {
-      Error("Buffer: target host buffer is too small");
+      throw LogicError("Buffer: target host buffer is too small");
     }
     ReadAsync(queue, size, host.data(), offset);
   }
@@ -626,7 +644,7 @@ class Buffer {
   // Copies from host to device: writing the device buffer a-synchronously
   void WriteAsync(const Queue &queue, const size_t size, const T* host, const size_t offset = 0) {
     if (GetSize() < (offset+size)*sizeof(T)) {
-      Error("Buffer: target device buffer is too small");
+      throw LogicError("Buffer: target device buffer is too small");
     }
     CheckError(clEnqueueWriteBuffer(queue(), *buffer_, CL_FALSE, offset*sizeof(T), size*sizeof(T),
                                     host, 0, nullptr, nullptr));
@@ -699,7 +717,7 @@ class Kernel {
       }) {
     auto status = CL_SUCCESS;
     *kernel_ = clCreateKernel(program(), name.c_str(), &status);
-    CheckError(status);
+    CLCudaAPIError::Check(status, "clCreateKernel");
   }
 
   // Sets a kernel argument at the indicated position

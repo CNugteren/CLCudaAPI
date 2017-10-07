@@ -1,4 +1,17 @@
 
+Version 9.0 (2017-10-07):
+- Synchronized with the CLBLast's clpp11.h header
+- Added custom exception class hierarchy for catching errors
+- Removal of custom error codes for program building in favor of throwing exceptions
+- Several minor fixes
+- Added new methods to the API:
+  * Platform::Name
+  * Platform::Vendor
+  * Platform::Version
+  * Device::HasExtension
+  * Device::AMDBoardName
+  * Device::NVIDIAComputeCapability
+
 Version 8.0 (2016-09-27):
 - Several minor fixes
 - Added new methods to the API:

@@ -40,11 +40,13 @@
 #include <string>    // std::string
 #include <vector>    // std::vector
 #include <memory>    // std::shared_ptr
-#include <stdexcept> // std::runtime_error
 
 // CUDA
 #include <cuda.h>    // CUDA driver API
 #include <nvrtc.h>   // NVIDIA runtime compilation API
+
+// Exception classes
+#include "cxpp11_common.hpp"
 
 namespace CLCudaAPI {
 // =================================================================================================
@@ -54,32 +56,63 @@ constexpr auto kStringLength = 256;
 
 // =================================================================================================
 
-// Error occurred in the C++11 CUDA header (this file)
-inline void Error(const std::string &message) {
-  throw std::runtime_error("Internal CUDA error: "+message);
-}
-
-// Error occurred in the CUDA driver API
-inline void CheckError(const CUresult status) {
-  if (status != CUDA_SUCCESS) {
+// Represents a runtime error returned by a CUDA driver API function
+class CLCudaAPIError : public ErrorCode<DeviceError, CUresult> {
+public:
+  explicit CLCudaAPIError(CUresult status, const std::string &where) {
     const char* status_code;
     cuGetErrorName(status, &status_code);
     const char* status_string;
     cuGetErrorString(status, &status_string);
-    throw std::runtime_error("Internal CUDA error "+std::string{status_code}+
-                             " : "+std::string{status_string});
+    ErrorCode(status, where, "CUDA error: " + where + ": " +
+                             std::to_string(status_code) + " --> " +
+                             std::to_string(status_string));
   }
-}
-inline void CheckErrorDtor(const CUresult status) { CheckError(status); }
 
-// Error occurred in the NVIDIA runtime compilation API
-inline void CheckError(const nvrtcResult status) {
-  if (status != NVRTC_SUCCESS) {
-    const char* status_string = nvrtcGetErrorString(status);
-    throw std::runtime_error("Internal CUDA error: "+std::string{status_string});
+  static void Check(const CUresult status, const std::string &where) {
+    if (status != CUDA_SUCCESS) {
+      throw CLCudaAPIError(status, where);
+    }
   }
-}
-inline void CheckErrorDtor(const nvrtcResult status) { CheckError(status); }
+
+  static void CheckDtor(const CUresult status, const std::string &where) {
+    if (status != CUDA_SUCCESS) {
+      fprintf(stderr, "CLCudaAPI: %s (ignoring)\n", CLCudaAPIError(status, where).what());
+    }
+  }
+};
+
+// Represents a runtime error returned by a CUDA runtime compilation API function
+class NVRTCError : public ErrorCode<DeviceError, nvrtcResult> {
+public:
+  explicit NVRTCError(nvrtcResult status, const std::string &where) {
+    const char* status_string = nvrtcGetErrorString(status);
+    ErrorCode(status, where, "CUDA NVRTC error: " + where + ": " +
+                             std::to_string(status_string));
+  }
+
+  static void Check(const nvrtcResult status, const std::string &where) {
+    if (status != NVRTC_SUCCESS) {
+      throw NVRTCError(status, where);
+    }
+  }
+
+  static void CheckDtor(const nvrtcResult status, const std::string &where) {
+    if (status != NVRTC_SUCCESS) {
+      fprintf(stderr, "CLCudaAPI: %s (ignoring)\n", NVRTCError(status, where).what());
+    }
+  }
+};
+
+// =================================================================================================
+
+// Error occurred in CUDA driver or runtime compilation API
+#define CheckError(call) CLCudaAPIError::Check(call, CLCudaAPIError::TrimCallString(#call))
+#define CheckErrorNVRTC(call) NVRTCError::Check(call, NVRTCError::TrimCallString(#call))
+
+// Error occurred in CUDA driver or runtime compilation API (no-exception version for destructors)
+#define CheckErrorDtor(call) CLCudaAPIError::CheckDtor(call, CLCudaAPIError::TrimCallString(#call))
+#define CheckErrorDtorNVRTC(call) NVRTCError::CheckDtor(call, NVRTCError::TrimCallString(#call))
 
 // =================================================================================================
 
@@ -129,7 +162,7 @@ class Platform {
 
   // Initializes the platform. Note that the platform ID variable is not actually used for CUDA.
   explicit Platform(const size_t platform_id) {
-    if (platform_id != 0) { Error("CUDA back-end requires a platform ID of 0"); }
+    if (platform_id != 0) { throw LogicError("CUDA back-end requires a platform ID of 0"); }
     CheckError(cuInit(0));
   }
 
@@ -169,10 +202,10 @@ class Device {
   explicit Device(const Platform &platform, const size_t device_id) {
     auto num_devices = platform.NumDevices();
     if (num_devices == 0) {
-      Error("Device: no devices found");
+      throw RuntimeError("Device: no devices found");
     }
     if (device_id >= num_devices) {
-      Error("Device: invalid device ID "+std::to_string(device_id));
+      throw RuntimeError("Device: invalid device ID "+std::to_string(device_id));
     }
 
     CheckError(cuDeviceGet(&device_, device_id));
@@ -295,7 +328,7 @@ class Context {
   std::shared_ptr<CUcontext> context_;
 };
 
-// Pointer to an OpenCL context
+// Pointer to a raw CUDA context
 using ContextPointer = CUcontext*;
 
 // =================================================================================================
@@ -308,13 +341,13 @@ class Program {
   // Source-based constructor with memory management
   explicit Program(const Context &, std::string source):
       program_(new nvrtcProgram, [](nvrtcProgram* p) {
-          if (*p) { CheckErrorDtor(nvrtcDestroyProgram(p)); }
+          if (*p) { CheckErrorDtorNVRTC(nvrtcDestroyProgram(p)); }
           delete p;
       }),
       source_(std::move(source)),
       from_binary_(false) {
     const auto source_ptr = &source_[0];
-    CheckError(nvrtcCreateProgram(program_.get(), source_ptr, nullptr, 0, nullptr, nullptr));
+    CheckErrorNVRTC(nvrtcCreateProgram(program_.get(), source_ptr, nullptr, 0, nullptr, nullptr));
   }
 
   // PTX-based constructor
@@ -332,17 +365,17 @@ class Program {
       raw_options.push_back(option.c_str());
     }
     auto status = nvrtcCompileProgram(*program_, raw_options.size(), raw_options.data());
-    CheckError(status);
+    CLCudaAPIError::Check(status, "nvrtcCompileProgram");
   }
 
   // Retrieves the warning/error message from the compiler (if any)
   std::string GetBuildInfo(const Device &) const {
     if (from_binary_) { return std::string{}; }
     auto bytes = size_t{0};
-    CheckError(nvrtcGetProgramLogSize(*program_, &bytes));
+    CheckErrorNVRTC(nvrtcGetProgramLogSize(*program_, &bytes));
     auto result = std::string{};
     result.resize(bytes);
-    CheckError(nvrtcGetProgramLog(*program_, &result[0]));
+    CheckErrorNVRTC(nvrtcGetProgramLog(*program_, &result[0]));
     return result;
   }
 
@@ -350,10 +383,10 @@ class Program {
   std::string GetIR() const {
     if (from_binary_) { return source_; } // holds the PTX
     auto bytes = size_t{0};
-    CheckError(nvrtcGetPTXSize(*program_, &bytes));
+    CheckErrorNVRTC(nvrtcGetPTXSize(*program_, &bytes));
     auto result = std::string{};
     result.resize(bytes);
-    CheckError(nvrtcGetPTX(*program_, &result[0]));
+    CheckErrorNVRTC(nvrtcGetPTX(*program_, &result[0]));
     return result;
   }
 
@@ -482,21 +515,21 @@ class Buffer {
   // Copies from device to host: reading the device buffer a-synchronously
   void ReadAsync(const Queue &queue, const size_t size, T* host, const size_t offset = 0) const {
     if (access_ == BufferAccess::kWriteOnly) {
-      Error("Buffer: reading from a write-only buffer");
+      throw LogicError("Buffer: reading from a write-only buffer");
     }
     CheckError(cuMemcpyDtoHAsync(host, *buffer_ + offset*sizeof(T), size*sizeof(T), queue()));
   }
   void ReadAsync(const Queue &queue, const size_t size, std::vector<T> &host,
                  const size_t offset = 0) const {
     if (host.size() < size) {
-      Error("Buffer: target host buffer is too small");
+      throw LogicError("Buffer: target host buffer is too small");
     }
     ReadAsync(queue, size, host.data(), offset);
   }
   void ReadAsync(const Queue &queue, const size_t size, BufferHost<T> &host,
                  const size_t offset = 0) const {
     if (host.size() < size) {
-      Error("Buffer: target host buffer is too small");
+      throw LogicError("Buffer: target host buffer is too small");
     }
     ReadAsync(queue, size, host.data(), offset);
   }
@@ -518,10 +551,10 @@ class Buffer {
   // Copies from host to device: writing the device buffer a-synchronously
   void WriteAsync(const Queue &queue, const size_t size, const T* host, const size_t offset = 0) {
     if (access_ == BufferAccess::kReadOnly) {
-      Error("Buffer: writing to a read-only buffer");
+      throw LogicError("Buffer: writing to a read-only buffer");
     }
     if (GetSize() < (offset+size)*sizeof(T)) {
-      Error("Buffer: target device buffer is too small");
+      throw LogicError("Buffer: target device buffer is too small");
     }
     CheckError(cuMemcpyHtoDAsync(*buffer_ + offset*sizeof(T), host, size*sizeof(T), queue()));
   }
@@ -634,7 +667,7 @@ class Kernel {
     // Creates the grid (number of threadblocks) and sets the block sizes (threads per block)
     auto grid = std::vector<size_t>{1, 1, 1};
     auto block = std::vector<size_t>{1, 1, 1};
-    if (global.size() != local.size()) { Error("invalid thread/workgroup dimensions"); }
+    if (global.size() != local.size()) { throw LogicError("invalid thread/workgroup dimensions"); }
     for (auto i=size_t{0}; i<local.size(); ++i) { grid[i] = global[i]/local[i]; }
     for (auto i=size_t{0}; i<local.size(); ++i) { block[i] = local[i]; }
 
@@ -657,10 +690,10 @@ class Kernel {
               const std::vector<size_t> &local, EventPointer event,
               std::vector<Event>& waitForEvents) {
     if (local.size() == 0) {
-      Error("launching with a default workgroup size is not implemented for the CUDA back-end");
+      throw LogicError("Kernel: launching with a default workgroup size is not implemented for the CUDA back-end");
     }
     else if (waitForEvents.size() != 0) {
-      Error("launching with an event waiting list is not implemented for the CUDA back-end");
+      throw LogicError("Kernel: launching with an event waiting list is not implemented for the CUDA back-end");
     }
     else {
      return Launch(queue, global, local, event);
