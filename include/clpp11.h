@@ -12,7 +12,7 @@
 // Portability here means that a similar header exists for CUDA with the same classes and
 // interfaces. In other words, moving from the OpenCL API to the CUDA API becomes a one-line change.
 //
-// This is version 8.0 of CLCudaAPI.
+// This is version 9.0 of CLCudaAPI.
 //
 // =================================================================================================
 //
@@ -64,6 +64,7 @@ inline void CheckError(const cl_int status) {
     throw std::runtime_error("Internal OpenCL error: "+std::to_string(status));
   }
 }
+inline void CheckErrorDtor(const cl_int status) { CheckError(status); }
 
 // =================================================================================================
 
@@ -80,7 +81,7 @@ class Event {
   // Regular constructor with memory management
   explicit Event():
       event_(new cl_event, [](cl_event* e) {
-        if (*e) { CheckError(clReleaseEvent(*e)); }
+        if (*e) { CheckErrorDtor(clReleaseEvent(*e)); }
         delete e;
       }) {
     *event_ = nullptr;
@@ -91,16 +92,17 @@ class Event {
     CheckError(clWaitForEvents(1, &(*event_)));
   }
 
-  // Retrieves the elapsed time of the last recorded event. Note that no error checking is done on
-  // the 'clGetEventProfilingInfo' function, since there is a bug in Apple's OpenCL implementation:
-  // http://stackoverflow.com/questions/26145603/clgeteventprofilinginfo-bug-in-macosx
+  // Retrieves the elapsed time of the last recorded event.
+  // (Note that there is a bug in Apple's OpenCL implementation of the 'clGetEventProfilingInfo' function:
+  //  http://stackoverflow.com/questions/26145603/clgeteventprofilinginfo-bug-in-macosx)
+  // However, in our case the reply size is fixed to be cl_ulong, so we are not affected.
   float GetElapsedTime() const {
     WaitForCompletion();
     const auto bytes = sizeof(cl_ulong);
     auto time_start = cl_ulong{0};
-    clGetEventProfilingInfo(*event_, CL_PROFILING_COMMAND_START, bytes, &time_start, nullptr);
+    CheckError(clGetEventProfilingInfo(*event_, CL_PROFILING_COMMAND_START, bytes, &time_start, nullptr));
     auto time_end = cl_ulong{0};
-    clGetEventProfilingInfo(*event_, CL_PROFILING_COMMAND_END, bytes, &time_end, nullptr);
+    CheckError(clGetEventProfilingInfo(*event_, CL_PROFILING_COMMAND_END, bytes, &time_end, nullptr));
     return static_cast<float>(time_end - time_start) * 1.0e-6f;
   }
 
@@ -129,12 +131,21 @@ class Platform {
   explicit Platform(const size_t platform_id) {
     auto num_platforms = cl_uint{0};
     CheckError(clGetPlatformIDs(0, nullptr, &num_platforms));
-    if (num_platforms == 0) { Error("no platforms found"); }
+    if (num_platforms == 0) {
+      Error("Platform: no platforms found");
+    }
+    if (platform_id >= num_platforms) {
+      Error("Platform: invalid platform ID "+std::to_string(platform_id));
+    }
     auto platforms = std::vector<cl_platform_id>(num_platforms);
     CheckError(clGetPlatformIDs(num_platforms, platforms.data(), nullptr));
-    if (platform_id >= num_platforms) { Error("invalid platform ID "+std::to_string(platform_id)); }
     platform_ = platforms[platform_id];
   }
+
+  // Methods to retrieve platform information
+  std::string Name() const { return GetInfoString(CL_PLATFORM_NAME); }
+  std::string Vendor() const { return GetInfoString(CL_PLATFORM_VENDOR); }
+  std::string Version() const { return GetInfoString(CL_PLATFORM_VERSION); }
 
   // Returns the number of devices on this platform
   size_t NumDevices() const {
@@ -147,6 +158,17 @@ class Platform {
   const cl_platform_id& operator()() const { return platform_; }
  private:
   cl_platform_id platform_;
+
+  // Private helper functions
+  std::string GetInfoString(const cl_device_info info) const {
+    auto bytes = size_t{0};
+    CheckError(clGetPlatformInfo(platform_, info, 0, nullptr, &bytes));
+    auto result = std::string{};
+    result.resize(bytes);
+    CheckError(clGetPlatformInfo(platform_, info, bytes, &result[0], nullptr));
+    result.resize(strlen(result.c_str())); // Removes any trailing '\0'-characters
+    return result;
+  }
 };
 
 // Retrieves a vector with all platforms

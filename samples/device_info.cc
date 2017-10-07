@@ -28,17 +28,17 @@
 //
 // =================================================================================================
 
+// C++ includes
+#include <cstdio>
+#include <vector>
+#include <string>
+
 // Run with either OpenCL or CUDA as a back-end
 #if USE_OPENCL
   #include "clpp11.h"
 #else
   #include "cupp11.h"
 #endif
-
-// C++ includes
-#include <vector>
-#include <string>
-#include <cstdio>
 
 // =================================================================================================
 
@@ -51,13 +51,17 @@ int main() {
 
   // Initializes the CLCudaAPI platform and device. This initializes the OpenCL/CUDA back-end and
   // selects a specific device on the platform.
-  auto platform = CLCudaAPI::Platform(platform_id);
-  auto device = CLCudaAPI::Device(platform, device_id);
+  const auto platform = CLCudaAPI::Platform(platform_id);
+  const auto device = CLCudaAPI::Device(platform, device_id);
 
   // Prints information about the chosen device. Most of these results should stay the same when
   // switching between the CUDA and OpenCL back-ends.
-  printf("\n## Printing device information...\n");
+  printf("\n## Printing platform information...\n");
   printf(" > Platform ID                  %zu\n", platform_id);
+  printf(" > Platform name                %s\n", platform.Name().c_str());
+  printf(" > Platform vendor              %s\n", platform.Vendor().c_str());
+  printf(" > Platform version             %s\n", platform.Version().c_str());
+  printf("\n## Printing device information...\n");
   printf(" > Device ID                    %zu\n", device_id);
   printf(" > Framework version            %s\n", device.Version().c_str());
   printf(" > Vendor                       %s\n", device.Vendor().c_str());

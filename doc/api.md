@@ -29,6 +29,20 @@ Constructor(s):
 * `Platform(const size_t platform_id)`:
 When using the OpenCL back-end, this initializes a new OpenCL platform (e.g. AMD SDK, Intel SDK, NVIDIA SDK) specified by the integer `platform_id`. When using the CUDA back-end, this initializes the CUDA driver API. The `platform_id` argument is ignored: there is only one platform.
 
+Public method(s):
+
+* `std::string Name() const`:
+Retrieves the name of the platform.
+
+* `std::string Vendor() const`:
+Retrieves the name of the vendor of the platform.
+
+* `std::string Version() const`:
+Retrieves which version of an OpenCL platform is used (OpenCL back-end) or which CUDA driver is used (CUDA back-end).
+
+* `size_t NumDevices() const`:
+Retrieves the number of devices on this platform.
+
 Non-member function(s):
 
 * `std::vector<Platform> GetAllPlatforms()`:

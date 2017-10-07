@@ -12,7 +12,7 @@
 // Portability here means that a similar header exists for OpenCL with the same classes and
 // interfaces. In other words, moving from the CUDA API to the OpenCL API becomes a one-line change.
 //
-// This is version 8.0 of CLCudaAPI.
+// This is version 9.0 of CLCudaAPI.
 //
 // =================================================================================================
 //
@@ -70,6 +70,7 @@ inline void CheckError(const CUresult status) {
                              " : "+std::string{status_string});
   }
 }
+inline void CheckErrorDtor(const CUresult status) { CheckError(status); }
 
 // Error occurred in the NVIDIA runtime compilation API
 inline void CheckError(const nvrtcResult status) {
@@ -78,6 +79,7 @@ inline void CheckError(const nvrtcResult status) {
     throw std::runtime_error("Internal CUDA error: "+std::string{status_string});
   }
 }
+inline void CheckErrorDtor(const nvrtcResult status) { CheckError(status); }
 
 // =================================================================================================
 
@@ -88,8 +90,8 @@ class Event {
 
   // Regular constructor with memory management
   explicit Event():
-      start_(new CUevent, [](CUevent* e) { CheckError(cuEventDestroy(*e)); delete e; }),
-      end_(new CUevent, [](CUevent* e) { CheckError(cuEventDestroy(*e)); delete e; }) {
+      start_(new CUevent, [](CUevent* e) { CheckErrorDtor(cuEventDestroy(*e)); delete e; }),
+      end_(new CUevent, [](CUevent* e) { CheckErrorDtor(cuEventDestroy(*e)); delete e; }) {
     CheckError(cuEventCreate(start_.get(), CU_EVENT_DEFAULT));
     CheckError(cuEventCreate(end_.get(), CU_EVENT_DEFAULT));
   }
@@ -126,6 +128,15 @@ class Platform {
   explicit Platform(const size_t platform_id):
     platform_id_(platform_id) {
     CheckError(cuInit(0));
+  }
+
+  // Methods to retrieve platform information
+  std::string Name() const { return "CUDA"; }
+  std::string Vendor() const { return "NVIDIA"; }
+  std::string Version() const {
+    auto result = 0;
+    CheckError(cuDriverGetVersion(&result));
+    return "CUDA driver "+std::to_string(result);
   }
 
   // Returns the number of devices on this platform
