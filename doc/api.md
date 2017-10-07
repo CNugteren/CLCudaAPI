@@ -59,8 +59,8 @@ Initializes a new OpenCL or CUDA device on the specified platform. The `device_i
 
 Public method(s):
 
-* `unsigned long PlatformID() const`:
-Retrieves the `platform_id` ID of the platform used (OpenCL back-end) or 0 in case of the CUDA back-end.
+* `RawPlatformID PlatformID() const`:
+Retrieves the raw `cl_platform_id` ID of the platform used (OpenCL back-end) or a 0 `size_t` in case of the CUDA back-end.
 
 * `std::string Version() const`:
 Retrieves which version of the OpenCL standard is supported (OpenCL back-end) or which CUDA driver is used (CUDA back-end).

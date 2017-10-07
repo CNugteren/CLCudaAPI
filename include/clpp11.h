@@ -122,6 +122,9 @@ using EventPointer = cl_event*;
 
 // =================================================================================================
 
+// Raw platform ID type
+using RawPlatformID = cl_platform_id;
+
 // C++11 version of 'cl_platform_id'
 class Platform {
  public:
@@ -210,9 +213,7 @@ class Device {
   }
 
   // Methods to retrieve device information
-  unsigned long PlatformID() const {
-    return static_cast<unsigned long>(GetInfo<cl_platform_id>(CL_DEVICE_PLATFORM));
-  }
+  RawPlatformID PlatformID() const { return GetInfo<cl_platform_id>(CL_DEVICE_PLATFORM); }
   std::string Version() const { return GetInfoString(CL_DEVICE_VERSION); }
   size_t VersionNumber() const
   {
@@ -468,23 +469,12 @@ class Queue {
 
   // Regular constructor with memory management
   explicit Queue(const Context &context, const Device &device):
-      queue_(new cl_command_queue, [](cl_command_queue* s) { CheckError(clReleaseCommandQueue(*s));
-                                                             delete s; }) {
+      queue_(new cl_command_queue, [](cl_command_queue* s) {
+        if (*s) { CheckErrorDtor(clReleaseCommandQueue(*s)); }
+        delete s;
+      }) {
     auto status = CL_SUCCESS;
-    #ifdef CL_VERSION_2_0
-      size_t ocl_version = device.VersionNumber();
-      if (ocl_version >= 200)
-      {
-        cl_queue_properties properties[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0};
-        *queue_ = clCreateCommandQueueWithProperties(context(), device(), properties, &status);
-      }
-      else
-      {
-        *queue_ = clCreateCommandQueue(context(), device(), CL_QUEUE_PROFILING_ENABLE, &status);
-      }
-    #else
-      *queue_ = clCreateCommandQueue(context(), device(), CL_QUEUE_PROFILING_ENABLE, &status);
-    #endif
+    *queue_ = clCreateCommandQueue(context(), device(), CL_QUEUE_PROFILING_ENABLE, &status);
     CheckError(status);
   }
 
@@ -598,18 +588,24 @@ class Buffer {
 
   // Copies from device to host: reading the device buffer a-synchronously
   void ReadAsync(const Queue &queue, const size_t size, T* host, const size_t offset = 0) const {
-    if (access_ == BufferAccess::kWriteOnly) { Error("reading from a write-only buffer"); }
+    if (access_ == BufferAccess::kWriteOnly) {
+      Error("Buffer: reading from a write-only buffer");
+    }
     CheckError(clEnqueueReadBuffer(queue(), *buffer_, CL_FALSE, offset*sizeof(T), size*sizeof(T),
                                    host, 0, nullptr, nullptr));
   }
   void ReadAsync(const Queue &queue, const size_t size, std::vector<T> &host,
                  const size_t offset = 0) const {
-    if (host.size() < size) { Error("target host buffer is too small"); }
+    if (host.size() < size) {
+      Error("Buffer: target host buffer is too small");
+    }
     ReadAsync(queue, size, host.data(), offset);
   }
   void ReadAsync(const Queue &queue, const size_t size, BufferHost<T> &host,
                  const size_t offset = 0) const {
-    if (host.size() < size) { Error("target host buffer is too small"); }
+    if (host.size() < size) {
+      Error("Buffer: target host buffer is too small");
+    }
     ReadAsync(queue, size, host.data(), offset);
   }
 
@@ -629,8 +625,9 @@ class Buffer {
 
   // Copies from host to device: writing the device buffer a-synchronously
   void WriteAsync(const Queue &queue, const size_t size, const T* host, const size_t offset = 0) {
-    if (access_ == BufferAccess::kReadOnly) { Error("writing to a read-only buffer"); }
-    if (GetSize() < (offset+size)*sizeof(T)) { Error("target device buffer is too small"); }
+    if (GetSize() < (offset+size)*sizeof(T)) {
+      Error("Buffer: target device buffer is too small");
+    }
     CheckError(clEnqueueWriteBuffer(queue(), *buffer_, CL_FALSE, offset*sizeof(T), size*sizeof(T),
                                     host, 0, nullptr, nullptr));
   }
@@ -696,7 +693,10 @@ class Kernel {
 
   // Regular constructor with memory management
   explicit Kernel(const Program &program, const std::string &name):
-      kernel_(new cl_kernel, [](cl_kernel* k) { CheckError(clReleaseKernel(*k)); delete k; }) {
+      kernel_(new cl_kernel, [](cl_kernel* k) {
+        if (*k) { CheckErrorDtor(clReleaseKernel(*k)); }
+        delete k;
+      }) {
     auto status = CL_SUCCESS;
     *kernel_ = clCreateKernel(program(), name.c_str(), &status);
     CheckError(status);

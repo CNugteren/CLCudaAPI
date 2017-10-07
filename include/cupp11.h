@@ -120,13 +120,16 @@ using EventPointer = Event*;
 
 // =================================================================================================
 
+// Raw platform ID type
+using RawPlatformID = size_t;
+
 // The CUDA platform: initializes the CUDA driver API
 class Platform {
  public:
 
   // Initializes the platform. Note that the platform ID variable is not actually used for CUDA.
-  explicit Platform(const size_t platform_id):
-    platform_id_(platform_id) {
+  explicit Platform(const size_t platform_id) {
+    if (platform_id != 0) { Error("CUDA back-end requires a platform ID of 0"); }
     CheckError(cuInit(0));
   }
 
@@ -145,9 +148,6 @@ class Platform {
     CheckError(cuDeviceGetCount(&result));
     return static_cast<size_t>(result);
   }
-
- private:
-  size_t platform_id_;
 };
 
 // Retrieves a vector with all platforms. Note that there is just one platform in CUDA.
@@ -179,7 +179,7 @@ class Device {
   }
 
   // Methods to retrieve device information
-  unsigned long PlatformID() const { return 0; }
+  RawPlatformID PlatformID() const { return 0; }
   std::string Version() const {
     auto result = 0;
     CheckError(cuDriverGetVersion(&result));
@@ -374,13 +374,16 @@ class Queue {
 
   // Regular constructor with memory management
   explicit Queue(const Context &context, const Device &device):
-      queue_(new CUstream, [](CUstream* s) { CheckError(cuStreamDestroy(*s)); delete s; }),
+      queue_(new CUstream, [](CUstream* s) {
+        if (*s) { CheckErrorDtor(cuStreamDestroy(*s)); }
+        delete s;
+      }),
       context_(context),
       device_(device) {
     CheckError(cuStreamCreate(queue_.get(), CU_STREAM_NON_BLOCKING));
   }
 
-  // Synchronizes the queue and optionaly also an event
+  // Synchronizes the queue and optionally also an event
   void Finish(Event &event) const {
     CheckError(cuEventSynchronize(event.end()));
     Finish();
@@ -478,17 +481,23 @@ class Buffer {
 
   // Copies from device to host: reading the device buffer a-synchronously
   void ReadAsync(const Queue &queue, const size_t size, T* host, const size_t offset = 0) const {
-    if (access_ == BufferAccess::kWriteOnly) { Error("reading from a write-only buffer"); }
+    if (access_ == BufferAccess::kWriteOnly) {
+      Error("Buffer: reading from a write-only buffer");
+    }
     CheckError(cuMemcpyDtoHAsync(host, *buffer_ + offset*sizeof(T), size*sizeof(T), queue()));
   }
   void ReadAsync(const Queue &queue, const size_t size, std::vector<T> &host,
                  const size_t offset = 0) const {
-    if (host.size() < size) { Error("target host buffer is too small"); }
+    if (host.size() < size) {
+      Error("Buffer: target host buffer is too small");
+    }
     ReadAsync(queue, size, host.data(), offset);
   }
   void ReadAsync(const Queue &queue, const size_t size, BufferHost<T> &host,
                  const size_t offset = 0) const {
-    if (host.size() < size) { Error("target host buffer is too small"); }
+    if (host.size() < size) {
+      Error("Buffer: target host buffer is too small");
+    }
     ReadAsync(queue, size, host.data(), offset);
   }
 
@@ -508,8 +517,12 @@ class Buffer {
 
   // Copies from host to device: writing the device buffer a-synchronously
   void WriteAsync(const Queue &queue, const size_t size, const T* host, const size_t offset = 0) {
-    if (access_ == BufferAccess::kReadOnly) { Error("writing to a read-only buffer"); }
-    if (GetSize() < (offset+size)*sizeof(T)) { Error("target device buffer is too small"); }
+    if (access_ == BufferAccess::kReadOnly) {
+      Error("Buffer: writing to a read-only buffer");
+    }
+    if (GetSize() < (offset+size)*sizeof(T)) {
+      Error("Buffer: target device buffer is too small");
+    }
     CheckError(cuMemcpyHtoDAsync(*buffer_ + offset*sizeof(T), host, size*sizeof(T), queue()));
   }
   void WriteAsync(const Queue &queue, const size_t size, const std::vector<T> &host,
