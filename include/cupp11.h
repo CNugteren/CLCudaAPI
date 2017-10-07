@@ -168,11 +168,18 @@ class Device {
   // Initialization
   explicit Device(const Platform &platform, const size_t device_id) {
     auto num_devices = platform.NumDevices();
-    if (num_devices == 0) { Error("no devices found"); }
-    CheckError(cuDeviceGet(&device_, device_id % num_devices));
+    if (num_devices == 0) {
+      Error("Device: no devices found");
+    }
+    if (device_id >= num_devices) {
+      Error("Device: invalid device ID "+std::to_string(device_id));
+    }
+
+    CheckError(cuDeviceGet(&device_, device_id));
   }
 
   // Methods to retrieve device information
+  unsigned long PlatformID() const { return 0; }
   std::string Version() const {
     auto result = 0;
     CheckError(cuDriverGetVersion(&result));
@@ -201,11 +208,14 @@ class Device {
   unsigned long LocalMemSize() const {
     return static_cast<unsigned long>(GetInfo(CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_BLOCK));
   }
+
   std::string Capabilities() const {
     auto major = GetInfo(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR);
     auto minor = GetInfo(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR);
-    return "SM "+std::to_string(major)+"."+std::to_string(minor);
+    return "SM"+std::to_string(major)+"."+std::to_string(minor);
   }
+  bool HasExtension(const std::string &extension) const { return false; }
+
   size_t CoreClock() const { return 1e-3*GetInfo(CU_DEVICE_ATTRIBUTE_CLOCK_RATE); }
   size_t ComputeUnits() const { return GetInfo(CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT); }
   unsigned long MemorySize() const {
@@ -239,6 +249,10 @@ class Device {
   bool IsNVIDIA() const { return true; }
   bool IsIntel() const { return false; }
   bool IsARM() const { return false; }
+
+  // Platform specific extensions
+  std::string AMDBoardName() const { return ""; }
+  std::string NVIDIAComputeCapability() const { return Capabilities(); }
 
   // Accessor to the private data-member
   const CUdevice& operator()() const { return device_; }

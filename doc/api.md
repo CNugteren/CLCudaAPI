@@ -59,8 +59,14 @@ Initializes a new OpenCL or CUDA device on the specified platform. The `device_i
 
 Public method(s):
 
+* `unsigned long PlatformID() const`:
+Retrieves the `platform_id` ID of the platform used (OpenCL back-end) or 0 in case of the CUDA back-end.
+
 * `std::string Version() const`:
 Retrieves which version of the OpenCL standard is supported (OpenCL back-end) or which CUDA driver is used (CUDA back-end).
+
+* `size_t VersionNumber() const`:
+The same as the `Version()` method, but without text, just the numeric value.
 
 * `std::string Vendor() const`:
 Retrieves the name of the vendor of the device.
@@ -82,6 +88,9 @@ Retrieves the maximum amount of on-chip scratchpad memory ('local memory') avail
 
 * `std::string Capabilities() const`:
 In case of the OpenCL back-end, this returns a list of the OpenCL extensions supported. For CUDA, this returns the device capability (e.g. SM 3.5).
+
+* `bool HasExtension(const std::string &extension) const`:
+In case of the OpenCL back-end, queries whether a certain extension is present (as reported by `Capabilities()`). For CUDA, this always returns false.
 
 * `size_t CoreClock() const`:
 Retrieves the device's core clock frequency in MHz.
@@ -124,6 +133,13 @@ Determines whether this device is of the Intel brand.
 
 * `bool IsARM() const`:
 Determines whether this device is of the ARM brand.
+
+* `std::string AMDBoardName() const`:
+Returns the value of `CL_DEVICE_BOARD_NAME_AMD` if present. For the CUDA back-end, this always returns an empty string.
+
+* `std::string NVIDIAComputeCapability() const`:
+Returns the compute capability of an NVIDIA GPU, e.g. SM3.5. For the CUDA back-end, this returns the same as the `Capabilities()` method.
+
 
 CLCudaAPI::Context
 -------------

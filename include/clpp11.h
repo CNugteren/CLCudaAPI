@@ -42,8 +42,10 @@
 #include <memory>    // std::shared_ptr
 #include <stdexcept> // std::runtime_error
 #include <numeric>   // std::accumulate
+#include <cstring>   // std::strlen
 
 // OpenCL
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS // to disable deprecation warnings
 #if defined(__APPLE__) || defined(__MACOSX)
   #include <OpenCL/opencl.h>
 #else
@@ -194,15 +196,23 @@ class Device {
   // Initialize the device. Note that this constructor can throw exceptions!
   explicit Device(const Platform &platform, const size_t device_id) {
     auto num_devices = platform.NumDevices();
-    if (num_devices == 0) { Error("no devices found"); }
+    if (num_devices == 0) {
+      Error("Device: no devices found");
+    }
+    if (device_id >= num_devices) {
+      Error("Device: invalid device ID "+std::to_string(device_id));
+    }
+
     auto devices = std::vector<cl_device_id>(num_devices);
     CheckError(clGetDeviceIDs(platform(), CL_DEVICE_TYPE_ALL, static_cast<cl_uint>(num_devices),
                               devices.data(), nullptr));
-    if (device_id >= num_devices) { Error("invalid device ID "+std::to_string(device_id)); }
     device_ = devices[device_id];
   }
 
   // Methods to retrieve device information
+  unsigned long PlatformID() const {
+    return static_cast<unsigned long>(GetInfo<cl_platform_id>(CL_DEVICE_PLATFORM));
+  }
   std::string Version() const { return GetInfoString(CL_DEVICE_VERSION); }
   size_t VersionNumber() const
   {
@@ -234,7 +244,13 @@ class Device {
   unsigned long LocalMemSize() const {
     return static_cast<unsigned long>(GetInfo<cl_ulong>(CL_DEVICE_LOCAL_MEM_SIZE));
   }
+
   std::string Capabilities() const { return GetInfoString(CL_DEVICE_EXTENSIONS); }
+  bool HasExtension(const std::string &extension) const {
+    const auto extensions = Capabilities();
+    return extensions.find(extension) != std::string::npos;
+  }
+
   size_t CoreClock() const {
     return static_cast<size_t>(GetInfo<cl_uint>(CL_DEVICE_MAX_CLOCK_FREQUENCY));
   }
@@ -268,12 +284,34 @@ class Device {
   // Query for a specific type of device or brand
   bool IsCPU() const { return Type() == "CPU"; }
   bool IsGPU() const { return Type() == "GPU"; }
-  bool IsAMD() const { return Vendor() == "AMD" || Vendor() == "Advanced Micro Devices, Inc." ||
-                              Vendor() == "AuthenticAMD";; }
-  bool IsNVIDIA() const { return Vendor() == "NVIDIA" || Vendor() == "NVIDIA Corporation"; }
-  bool IsIntel() const { return Vendor() == "INTEL" || Vendor() == "Intel" ||
-                                Vendor() == "GenuineIntel"; }
+  bool IsAMD() const { return Vendor() == "AMD" ||
+                              Vendor() == "Advanced Micro Devices, Inc." ||
+                              Vendor() == "AuthenticAMD"; }
+  bool IsNVIDIA() const { return Vendor() == "NVIDIA" ||
+                                 Vendor() == "NVIDIA Corporation"; }
+  bool IsIntel() const { return Vendor() == "INTEL" ||
+                                Vendor() == "Intel" ||
+                                Vendor() == "GenuineIntel" ||
+                                Vendor() == "Intel(R) Corporation"; }
   bool IsARM() const { return Vendor() == "ARM"; }
+
+  // Platform specific extensions
+  std::string AMDBoardName() const { // check for 'cl_amd_device_attribute_query' first
+    #ifndef CL_DEVICE_BOARD_NAME_AMD
+      #define CL_DEVICE_BOARD_NAME_AMD 0x4038
+    #endif
+    return GetInfoString(CL_DEVICE_BOARD_NAME_AMD);
+  }
+  std::string NVIDIAComputeCapability() const { // check for 'cl_nv_device_attribute_query' first
+    #ifndef CL_DEVICE_COMPUTE_CAPABILITY_MAJOR_NV
+       #define CL_DEVICE_COMPUTE_CAPABILITY_MAJOR_NV 0x4000
+    #endif
+    #ifndef CL_DEVICE_COMPUTE_CAPABILITY_MINOR_NV
+      #define CL_DEVICE_COMPUTE_CAPABILITY_MINOR_NV 0x4001
+    #endif
+    return std::string{"SM"} + std::to_string(GetInfo<cl_uint>(CL_DEVICE_COMPUTE_CAPABILITY_MAJOR_NV)) +
+           std::string{"."} + std::to_string(GetInfo<cl_uint>(CL_DEVICE_COMPUTE_CAPABILITY_MINOR_NV));
+  }
 
   // Accessor to the private data-member
   const cl_device_id& operator()() const { return device_; }
@@ -303,7 +341,8 @@ class Device {
     auto result = std::string{};
     result.resize(bytes);
     CheckError(clGetDeviceInfo(device_, info, bytes, &result[0], nullptr));
-    return std::string{result.c_str()}; // Removes any trailing '\0'-characters
+    result.resize(strlen(result.c_str())); // Removes any trailing '\0'-characters
+    return result;
   }
 };
 

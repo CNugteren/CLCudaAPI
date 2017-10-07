@@ -66,6 +66,12 @@ int main() {
   printf(" > Framework version            %s\n", device.Version().c_str());
   printf(" > Vendor                       %s\n", device.Vendor().c_str());
   printf(" > Device name                  %s\n", device.Name().c_str());
+  if (device.HasExtension("cl_amd_device_attribute_query")) {
+    printf(" > AMD board name               %s\n", device.AMDBoardName().c_str());
+  }
+  if (device.HasExtension("cl_nv_device_attribute_query")) {
+    printf(" > NVIDIA compute capability    %s\n", device.NVIDIAComputeCapability().c_str());
+  }
   printf(" > Device type                  %s\n", device.Type().c_str());
   printf(" > Max work-group size          %zu\n", device.MaxWorkGroupSize());
   printf(" > Max thread dimensions        %zu\n", device.MaxWorkItemDimensions());
