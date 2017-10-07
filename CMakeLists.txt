@@ -78,6 +78,14 @@ if(MSVC)
   set(FLAGS "/Ox")
 else()
   set(FLAGS "-O3 -std=c++11 -Wall -Wno-comment")
+  if(CMAKE_CXX_COMPILER_ID STREQUAL GNU)
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.0.0)
+      # GCC does not support attributes on template arguments
+      # in particular we hit this with the alignment attributes on cl_XXX types
+      # which are then used to instantiate various templates in CLBlast
+      set(FLAGS "${FLAGS} -Wno-ignored-attributes")
+    endif()
+  endif()
 endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLAGS}")
 

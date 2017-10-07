@@ -48,6 +48,7 @@ set(OPENCL_HINTS
 set(OPENCL_PATHS
   /usr/local/cuda
   /opt/cuda
+  /opt/intel/opencl
   /usr
   /usr/local
 )
