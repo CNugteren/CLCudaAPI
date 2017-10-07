@@ -360,7 +360,10 @@ class Context {
 
   // Regular constructor with memory management
   explicit Context(const Device &device):
-      context_(new cl_context, [](cl_context* c) { CheckError(clReleaseContext(*c)); delete c; }) {
+      context_(new cl_context, [](cl_context* c) {
+        if (*c) { CheckErrorDtor(clReleaseContext(*c)); }
+        delete c;
+      }) {
     auto status = CL_SUCCESS;
     const cl_device_id dev = device();
     *context_ = clCreateContext(nullptr, 1, &dev, nullptr, nullptr, &status);
@@ -379,56 +382,48 @@ using ContextPointer = cl_context*;
 
 // =================================================================================================
 
-// Enumeration of build statuses of the run-time compilation process
-enum class BuildStatus { kSuccess, kError, kInvalid };
-
-// C++11 version of 'cl_program'. Additionally holds the program's source code.
+// C++11 version of 'cl_program'.
 class Program {
  public:
-  // Note that there is no constructor based on the regular OpenCL data-type because of extra state
+  Program() = default;
 
   // Source-based constructor with memory management
-  explicit Program(const Context &context, std::string source):
-      program_(new cl_program, [](cl_program* p) { CheckError(clReleaseProgram(*p)); delete p; }),
-      length_(source.length()),
-      source_(std::move(source)),
-      source_ptr_(&source_[0]) {
+  explicit Program(const Context &context, const std::string &source):
+      program_(new cl_program, [](cl_program* p) {
+        if (*p) { CheckErrorDtor(clReleaseProgram(*p)); }
+        delete p;
+      }) {
+    const char *source_ptr = &source[0];
+    const auto length = source.length();
     auto status = CL_SUCCESS;
-    *program_ = clCreateProgramWithSource(context(), 1, &source_ptr_, &length_, &status);
+    *program_ = clCreateProgramWithSource(context(), 1, &source_ptr, &length, &status);
     CheckError(status);
   }
 
   // Binary-based constructor with memory management
-  explicit Program(const Device &device, const Context &context, const std::string& binary):
-      program_(new cl_program, [](cl_program* p) { CheckError(clReleaseProgram(*p)); delete p; }),
-      length_(binary.length()),
-      source_(binary),
-      source_ptr_(&source_[0]) {
+  explicit Program(const Device &device, const Context &context, const std::string &binary):
+      program_(new cl_program, [](cl_program* p) {
+        if (*p) { CheckErrorDtor(clReleaseProgram(*p)); }
+        delete p;
+      }) {
+    const char *binary_ptr = &binary[0];
+    const auto length = binary.length();
     auto status1 = CL_SUCCESS;
     auto status2 = CL_SUCCESS;
-    const cl_device_id dev = device();
-    *program_ = clCreateProgramWithBinary(context(), 1, &dev, &length_,
-                                          reinterpret_cast<const unsigned char**>(&source_ptr_),
+    const auto dev = device();
+    *program_ = clCreateProgramWithBinary(context(), 1, &dev, &length,
+                                          reinterpret_cast<const unsigned char**>(&binary_ptr),
                                           &status1, &status2);
     CheckError(status1);
     CheckError(status2);
   }
 
-  // Compiles the device program and returns whether or not there where any warnings/errors
-  BuildStatus Build(const Device &device, std::vector<std::string> &options) {
+  // Compiles the device program and checks whether or not there are any warnings/errors
+  void Build(const Device &device, std::vector<std::string> &options) {
+    options.push_back("-cl-std=CL1.1");
     auto options_string = std::accumulate(options.begin(), options.end(), std::string{" "});
     const cl_device_id dev = device();
-    auto status = clBuildProgram(*program_, 1, &dev, options_string.c_str(), nullptr, nullptr);
-    if (status == CL_BUILD_PROGRAM_FAILURE) {
-      return BuildStatus::kError;
-    }
-    else if (status == CL_INVALID_BINARY) {
-      return BuildStatus::kInvalid;
-    }
-    else {
-      CheckError(status);
-      return BuildStatus::kSuccess;
-    }
+    CheckError(clBuildProgram(*program_, 1, &dev, options_string.c_str(), nullptr, nullptr));
   }
 
   // Retrieves the warning/error message from the compiler (if any)
@@ -457,9 +452,6 @@ class Program {
   const cl_program& operator()() const { return *program_; }
  private:
   std::shared_ptr<cl_program> program_;
-  size_t length_;
-  std::string source_; // Note: the source can also be a binary or IR
-  const char* source_ptr_;
 };
 
 // =================================================================================================

@@ -122,11 +122,12 @@ int main() {
   // Builds this program and checks for any compilation errors. If there are any, they are printed
   // and execution is halted.
   printf("## Compiling the kernel...\n");
-  auto build_status = program.Build(device, compiler_options);
-  if (build_status != CLCudaAPI::BuildStatus::kSuccess) {
+  try {
+    program.Build(device, compiler_options);
+  } catch (const std::runtime_error &e) {
     auto message = program.GetBuildInfo(device);
     printf(" > Compiler error(s)/warning(s) found:\n%s\n", message.c_str());
-    return 1;
+    throw;
   }
 
   // Populate host matrices based on CUDA/OpenCL host buffers. When using the CUDA back-end, this

@@ -281,7 +281,10 @@ class Context {
 
   // Regular constructor with memory management
   explicit Context(const Device &device):
-      context_(new CUcontext, [](CUcontext* c) { CheckError(cuCtxDestroy(*c)); delete c; }) {
+      context_(new CUcontext, [](CUcontext* c) {
+        if (*c) { CheckErrorDtor(cuCtxDestroy(*c)); }
+        delete c;
+      }) {
     CheckError(cuCtxCreate(context_.get(), 0, device()));
   }
 
@@ -297,9 +300,6 @@ using ContextPointer = CUcontext*;
 
 // =================================================================================================
 
-// Enumeration of build statuses of the run-time compilation process
-enum class BuildStatus { kSuccess, kError, kInvalid };
-
 // C++11 version of 'nvrtcProgram'. Additionally holds the program's source code.
 class Program {
  public:
@@ -307,40 +307,32 @@ class Program {
 
   // Source-based constructor with memory management
   explicit Program(const Context &, std::string source):
-      program_(new nvrtcProgram, [](nvrtcProgram* p) { CheckError(nvrtcDestroyProgram(p));
-                                                       delete p; }),
+      program_(new nvrtcProgram, [](nvrtcProgram* p) {
+          if (*p) { CheckErrorDtor(nvrtcDestroyProgram(p)); }
+          delete p;
+      }),
       source_(std::move(source)),
-      source_ptr_(&source_[0]),
       from_binary_(false) {
-    CheckError(nvrtcCreateProgram(program_.get(), source_ptr_, nullptr, 0, nullptr, nullptr));
+    const auto source_ptr = &source_[0];
+    CheckError(nvrtcCreateProgram(program_.get(), source_ptr, nullptr, 0, nullptr, nullptr));
   }
 
   // PTX-based constructor
-  explicit Program(const Device &device, const Context &context, const std::string& binary):
+  explicit Program(const Device &device, const Context &context, const std::string &binary):
       program_(nullptr), // not used
       source_(binary),
-      source_ptr_(&source_[0]), // not used
       from_binary_(true) {
   }
 
-  // Compiles the device program and returns whether or not there where any warnings/errors
-  BuildStatus Build(const Device &, std::vector<std::string> &options) {
-    if (from_binary_) { return BuildStatus::kSuccess; }
+  // Compiles the device program and checks whether or not there are any warnings/errors
+  void Build(const Device &, std::vector<std::string> &options) {
+    if (from_binary_) { return; }
     auto raw_options = std::vector<const char*>();
     for (const auto &option: options) {
       raw_options.push_back(option.c_str());
     }
     auto status = nvrtcCompileProgram(*program_, raw_options.size(), raw_options.data());
-    if (status == NVRTC_ERROR_COMPILATION) {
-      return BuildStatus::kError;
-    }
-    else if (status == NVRTC_ERROR_INVALID_PROGRAM) {
-      return BuildStatus::kInvalid;
-    }
-    else {
-      CheckError(status);
-      return BuildStatus::kSuccess;
-    }
+    CheckError(status);
   }
 
   // Retrieves the warning/error message from the compiler (if any)
@@ -369,8 +361,7 @@ class Program {
   const nvrtcProgram& operator()() const { return *program_; }
  private:
   std::shared_ptr<nvrtcProgram> program_;
-  std::string source_;
-  const char* source_ptr_;
+  const std::string source_;
   const bool from_binary_;
 };
 
