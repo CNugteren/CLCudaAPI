@@ -59,14 +59,9 @@ constexpr auto kStringLength = 256;
 // Represents a runtime error returned by a CUDA driver API function
 class CLCudaAPIError : public ErrorCode<DeviceError, CUresult> {
 public:
-  explicit CLCudaAPIError(CUresult status, const std::string &where) {
-    const char* status_code;
-    cuGetErrorName(status, &status_code);
-    const char* status_string;
-    cuGetErrorString(status, &status_string);
-    ErrorCode(status, where, "CUDA error: " + where + ": " +
-                             std::to_string(status_code) + " --> " +
-                             std::to_string(status_string));
+  explicit CLCudaAPIError(CUresult status, const std::string &where):
+      ErrorCode(status, where, "CUDA error: " + where + ": " +
+                               GetErrorName(status) + " --> " + GetErrorString(status)) {
   }
 
   static void Check(const CUresult status, const std::string &where) {
@@ -80,15 +75,25 @@ public:
       fprintf(stderr, "CLCudaAPI: %s (ignoring)\n", CLCudaAPIError(status, where).what());
     }
   }
+
+private:
+  std::string GetErrorName(CUresult status) const {
+    const char* status_code;
+    cuGetErrorName(status, &status_code);
+    return std::string(status_code);
+  }
+  std::string GetErrorString(CUresult status) const {
+    const char* status_string;
+    cuGetErrorString(status, &status_string);
+    return std::string(status_string);
+  }
 };
 
 // Represents a runtime error returned by a CUDA runtime compilation API function
 class NVRTCError : public ErrorCode<DeviceError, nvrtcResult> {
 public:
-  explicit NVRTCError(nvrtcResult status, const std::string &where) {
-    const char* status_string = nvrtcGetErrorString(status);
-    ErrorCode(status, where, "CUDA NVRTC error: " + where + ": " +
-                             std::to_string(status_string));
+  explicit NVRTCError(nvrtcResult status, const std::string &where):
+      ErrorCode(status, where, "CUDA NVRTC error: " + where + ": " + GetErrorString(status)) {
   }
 
   static void Check(const nvrtcResult status, const std::string &where) {
@@ -101,6 +106,12 @@ public:
     if (status != NVRTC_SUCCESS) {
       fprintf(stderr, "CLCudaAPI: %s (ignoring)\n", NVRTCError(status, where).what());
     }
+  }
+
+private:
+  std::string GetErrorString(nvrtcResult status) const {
+    const char* status_string = nvrtcGetErrorString(status);
+    return std::string(status_string);
   }
 };
 
@@ -168,7 +179,7 @@ class Platform {
 
   // Methods to retrieve platform information
   std::string Name() const { return "CUDA"; }
-  std::string Vendor() const { return "NVIDIA"; }
+  std::string Vendor() const { return "NVIDIA Corporation"; }
   std::string Version() const {
     auto result = 0;
     CheckError(cuDriverGetVersion(&result));
@@ -365,7 +376,7 @@ class Program {
       raw_options.push_back(option.c_str());
     }
     auto status = nvrtcCompileProgram(*program_, raw_options.size(), raw_options.data());
-    CLCudaAPIError::Check(status, "nvrtcCompileProgram");
+    NVRTCError::Check(status, "nvrtcCompileProgram");
   }
 
   // Retrieves the warning/error message from the compiler (if any)

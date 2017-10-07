@@ -16,6 +16,7 @@
 #define CLCUDAAPI_CXPP11_COMMON_H_
 
 #include <string>    // std::string
+#include <cstring>   // strchr
 #include <stdexcept> // std::runtime_error
 
 namespace CLCudaAPI {
