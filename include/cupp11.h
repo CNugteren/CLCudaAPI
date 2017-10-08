@@ -90,21 +90,21 @@ private:
 };
 
 // Represents a runtime error returned by a CUDA runtime compilation API function
-class NVRTCError : public ErrorCode<DeviceError, nvrtcResult> {
+class CLCudaAPINVRTCError : public ErrorCode<DeviceError, nvrtcResult> {
 public:
-  explicit NVRTCError(nvrtcResult status, const std::string &where):
+  explicit CLCudaAPINVRTCError(nvrtcResult status, const std::string &where):
       ErrorCode(status, where, "CUDA NVRTC error: " + where + ": " + GetErrorString(status)) {
   }
 
   static void Check(const nvrtcResult status, const std::string &where) {
     if (status != NVRTC_SUCCESS) {
-      throw NVRTCError(status, where);
+      throw CLCudaAPINVRTCError(status, where);
     }
   }
 
   static void CheckDtor(const nvrtcResult status, const std::string &where) {
     if (status != NVRTC_SUCCESS) {
-      fprintf(stderr, "CLCudaAPI: %s (ignoring)\n", NVRTCError(status, where).what());
+      fprintf(stderr, "CLCudaAPI: %s (ignoring)\n", CLCudaAPINVRTCError(status, where).what());
     }
   }
 
@@ -115,15 +115,18 @@ private:
   }
 };
 
+// Exception returned when building a program
+using CLCudaAPIBuildError = CLCudaAPINVRTCError;
+
 // =================================================================================================
 
 // Error occurred in CUDA driver or runtime compilation API
 #define CheckError(call) CLCudaAPIError::Check(call, CLCudaAPIError::TrimCallString(#call))
-#define CheckErrorNVRTC(call) NVRTCError::Check(call, NVRTCError::TrimCallString(#call))
+#define CheckErrorNVRTC(call) CLCudaAPINVRTCError::Check(call, CLCudaAPINVRTCError::TrimCallString(#call))
 
 // Error occurred in CUDA driver or runtime compilation API (no-exception version for destructors)
 #define CheckErrorDtor(call) CLCudaAPIError::CheckDtor(call, CLCudaAPIError::TrimCallString(#call))
-#define CheckErrorDtorNVRTC(call) NVRTCError::CheckDtor(call, NVRTCError::TrimCallString(#call))
+#define CheckErrorDtorNVRTC(call) CLCudaAPINVRTCError::CheckDtor(call, CLCudaAPINVRTCError::TrimCallString(#call))
 
 // =================================================================================================
 
@@ -192,6 +195,9 @@ class Platform {
     CheckError(cuDeviceGetCount(&result));
     return static_cast<size_t>(result);
   }
+
+  // Accessor to the raw ID (which doesn't exist in the CUDA back-end, this is always just 0)
+  const RawPlatformID& operator()() const { return 0; }
 };
 
 // Retrieves a vector with all platforms. Note that there is just one platform in CUDA.
@@ -201,6 +207,9 @@ inline std::vector<Platform> GetAllPlatforms() {
 }
 
 // =================================================================================================
+
+// Raw device ID type
+using RawDeviceID = CUdevice;
 
 // C++11 version of 'CUdevice'
 class Device {
@@ -254,11 +263,19 @@ class Device {
   }
 
   std::string Capabilities() const {
-    auto major = GetInfo(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR);
-    auto minor = GetInfo(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR);
+    const auto major = GetInfo(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR);
+    const auto minor = GetInfo(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR);
     return "SM"+std::to_string(major)+"."+std::to_string(minor);
   }
   bool HasExtension(const std::string &extension) const { return false; }
+  bool SupportsFP64() const { return true; }
+  bool SupportsFP16() const {
+    const auto major = GetInfo(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR);
+    const auto minor = GetInfo(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR);
+    if (major > 5) { return true; } // SM 6.x, 7.x and higher
+    if (major == 5 && minor == 3) { return true; } // SM 5.3
+    return false;
+  }
 
   size_t CoreClock() const { return 1e-3*GetInfo(CU_DEVICE_ATTRIBUTE_CLOCK_RATE); }
   size_t ComputeUnits() const { return GetInfo(CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT); }
@@ -299,7 +316,7 @@ class Device {
   std::string NVIDIAComputeCapability() const { return Capabilities(); }
 
   // Accessor to the private data-member
-  const CUdevice& operator()() const { return device_; }
+  const RawDeviceID& operator()() const { return device_; }
  private:
   CUdevice device_;
 
@@ -312,6 +329,9 @@ class Device {
 };
 
 // =================================================================================================
+
+// Raw context type
+using RawContext = CUcontext;
 
 // C++11 version of 'CUcontext'
 class Context {
@@ -333,8 +353,8 @@ class Context {
   }
 
   // Accessor to the private data-member
-  const CUcontext& operator()() const { return *context_; }
-  CUcontext* pointer() const { return &(*context_); }
+  const RawContext& operator()() const { return *context_; }
+  RawContext* pointer() const { return &(*context_); }
  private:
   std::shared_ptr<CUcontext> context_;
 };
@@ -376,7 +396,12 @@ class Program {
       raw_options.push_back(option.c_str());
     }
     auto status = nvrtcCompileProgram(*program_, raw_options.size(), raw_options.data());
-    NVRTCError::Check(status, "nvrtcCompileProgram");
+    CLCudaAPINVRTCError::Check(status, "nvrtcCompileProgram");
+  }
+
+  // Confirms whether a certain status code is an actual compilation error or warning
+  bool StatusIsCompilationWarningOrError(const nvrtcResult status) const {
+    return (status == NVRTC_ERROR_INVALID_INPUT);
   }
 
   // Retrieves the warning/error message from the compiler (if any)
@@ -411,6 +436,9 @@ class Program {
 
 // =================================================================================================
 
+// Raw command-queue type
+using RawCommandQueue = CUstream;
+
 // C++11 version of 'CUstream'
 class Queue {
  public:
@@ -441,7 +469,7 @@ class Queue {
   Device GetDevice() const { return device_; }
 
   // Accessor to the private data-member
-  const CUstream& operator()() const { return *queue_; }
+  const RawCommandQueue& operator()() const { return *queue_; }
  private:
   std::shared_ptr<CUstream> queue_;
   const Context context_;

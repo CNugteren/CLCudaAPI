@@ -92,6 +92,12 @@ In case of the OpenCL back-end, this returns a list of the OpenCL extensions sup
 * `bool HasExtension(const std::string &extension) const`:
 In case of the OpenCL back-end, queries whether a certain extension is present (as reported by `Capabilities()`). For CUDA, this always returns false.
 
+* `bool SupportsFP64() const`:
+Returns whether or not double-precision floating-point 64-bit is supported by the device.
+
+* `bool SupportsFP16() const`:
+Returns whether or not half-precision floating-point 16-bit is supported by the device.
+
 * `size_t CoreClock() const`:
 Retrieves the device's core clock frequency in MHz.
 

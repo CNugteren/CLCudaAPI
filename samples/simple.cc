@@ -97,9 +97,11 @@ int main() {
   auto compiler_options = std::vector<std::string>{};
   try {
     program.Build(device, compiler_options);
-  } catch (const CLCudaAPI::CLCudaAPIError &e) {
-    auto message = program.GetBuildInfo(device);
-    printf(" > Compiler error(s)/warning(s) found:\n%s\n", message.c_str());
+  } catch (const CLCudaAPI::CLCudaAPIBuildError &e) {
+    if (program.StatusIsCompilationWarningOrError(e.status())) {
+      auto message = program.GetBuildInfo(device);
+      printf(" > Compiler error(s)/warning(s) found:\n%s\n", message.c_str());
+    }
     throw;
   }
 
