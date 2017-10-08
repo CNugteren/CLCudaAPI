@@ -175,7 +175,7 @@ class Platform {
  public:
 
   // Initializes the platform. Note that the platform ID variable is not actually used for CUDA.
-  explicit Platform(const size_t platform_id) {
+  explicit Platform(const size_t platform_id) : platform_id_(0) {
     if (platform_id != 0) { throw LogicError("CUDA back-end requires a platform ID of 0"); }
     CheckError(cuInit(0));
   }
@@ -197,7 +197,9 @@ class Platform {
   }
 
   // Accessor to the raw ID (which doesn't exist in the CUDA back-end, this is always just 0)
-  const RawPlatformID& operator()() const { return 0; }
+  const RawPlatformID& operator()() const { return platform_id_; }
+private:
+  const size_t platform_id_;
 };
 
 // Retrieves a vector with all platforms. Note that there is just one platform in CUDA.

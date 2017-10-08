@@ -1,5 +1,5 @@
 
-Version 9.0 (2017-10-07):
+Version 9.0 (2017-10-08):
 - Synchronized with the CLBLast's clpp11.h header
 - Added custom exception class hierarchy for catching errors
 - Removal of custom error codes for program building in favor of throwing exceptions
